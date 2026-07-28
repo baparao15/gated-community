@@ -13,6 +13,7 @@ import FacilitiesPage from '../pages/Facilities';
 import NoticesPage from '../pages/NoticesPage';
 import { ForumPage, NotificationsPage, VehiclesPage } from '../pages/CommunityPages';
 import ProfilePage from '../pages/ProfilePage';
+import MarketplacePage from '../pages/MarketplacePage';
 import SettingsPage from '../pages/Settings';
 import UnitsPage from '../pages/Units';
 import { EmergencyPage, ReportsPage, ResidentsPage } from '../pages/AdminPages';
@@ -39,6 +40,7 @@ export default function AppRoutes() {
         <Route path="payments" element={<For roles={residentAdminRoles}><PaymentsPage /></For>} />
         <Route path="bookings" element={<For roles={residentAdminRoles}><BookingsPage /></For>} />
         <Route path="facilities" element={<For roles={allRoles}><FacilitiesPage /></For>} />
+        <Route path="marketplace" element={<For roles={allRoles}><MarketplacePage /></For>} />
         <Route path="notices" element={<For roles={allRoles}><NoticesPage /></For>} />
         <Route path="vehicles" element={<For roles={['Resident', ...securityRoles]}><VehiclesPage /></For>} />
         <Route path="forum" element={<For roles={residentAdminRoles}><ForumPage /></For>} />

@@ -25,6 +25,16 @@ const upload = multer({
   fileFilter,
 });
 
+// Voice clips are transcribed and discarded, not persisted — kept in memory, not written to /uploads.
+const uploadAudio = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('audio/') || file.mimetype === 'video/webm') return cb(null, true);
+    cb(new Error('Only audio files are allowed'));
+  },
+});
+
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError || err) {
     return sendError(res, err.message, null, 400);
@@ -32,4 +42,4 @@ const handleUploadError = (err, req, res, next) => {
   next();
 };
 
-module.exports = { upload, handleUploadError };
+module.exports = { upload, uploadAudio, handleUploadError };

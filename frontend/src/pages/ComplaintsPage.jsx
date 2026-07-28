@@ -1,36 +1,67 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import Rating from '@mui/material/Rating';
-import { CheckCircle2, Clock3, MessageSquare, Plus, Upload, Wrench } from 'lucide-react';
+import { CheckCircle2, Clock3, IndianRupee, MessageSquare, Plus, Receipt, Users, Wrench } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import StatCard from '../components/StatCard';
+import ImageUploader from '../components/ImageUploader';
 import useApiData from '../hooks/useApiData';
 import api from '../services/api';
 import { showToast } from '../store/uiSlice';
-import { asList } from '../utils/apiData';
+import { asList, currency, uploadUrl } from '../utils/apiData';
 
 export default function ComplaintsPage() {
   const role = useSelector((s) => s.auth.user?.role);
-  const endpoint = role === 'Resident' ? '/complaints/my' : role === 'Staff' ? '/complaints/assigned/me' : '/complaints';
+  const isResident = role === 'Resident';
+  const isStaff = role === 'Staff' || role === 'Admin' || role === 'SuperAdmin';
+  const [view, setView] = useState('personal'); // 'personal' | 'community' — resident tab
+  const endpoint = isResident
+    ? (view === 'community' ? '/complaints/community' : '/complaints/my')
+    : role === 'Staff' ? '/complaints/assigned/me' : '/complaints';
   const { data, setData } = useApiData(endpoint, []);
   const items = asList(data);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({ category: 'plumbing', description: '' });
+  const [quoteTarget, setQuoteTarget] = useState(null);
+  const [quoteForm, setQuoteForm] = useState({ amount: '', note: '' });
+  const [form, setForm] = useState({ category: 'plumbing', scope: 'personal', description: '' });
+  const [images, setImages] = useState([]);
+  const [voiceFilled, setVoiceFilled] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const updateItem = (id, patch) => setData(items.map((x) => (x._id === id ? { ...x, ...patch } : x)));
+
+  const openCreate = (scope) => { setForm({ category: 'plumbing', scope, description: '' }); setImages([]); setVoiceFilled(false); setOpen(true); };
+
+  // Voice assistant deep-link: the mic parses "raise a plumbing complaint…" and lands
+  // here with the category/description/scope pre-filled — the resident only adds a photo.
+  useEffect(() => {
+    const prefill = location.state?.voicePrefill;
+    if (prefill?.type !== 'complaint' || !isResident) return;
+    setForm({ category: prefill.category || 'plumbing', scope: prefill.scope || 'personal', description: prefill.description || '' });
+    setImages([]);
+    setVoiceFilled(true);
+    setOpen(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, isResident, navigate, location.pathname]);
 
   const create = async (e) => {
     e.preventDefault();
     const fd = new FormData();
     Object.entries(form).forEach(([key, value]) => fd.append(key, value));
+    images.forEach((file) => fd.append('images', file));
     try {
       const { data: response } = await api.post('/complaints', fd);
-      setData([response.data, ...items]);
+      if (isResident && view === form.scope) setData([response.data, ...items]);
       setOpen(false);
-      dispatch(showToast({ message: 'Complaint raised. We will keep you updated.' }));
+      setImages([]);
+      dispatch(showToast({ message: form.scope === 'community' ? 'Community issue reported. Thanks for the heads-up!' : 'Complaint raised. We will keep you updated.' }));
     } catch (err) {
       dispatch(showToast({ message: err.response?.data?.message || 'Complaint could not be raised', severity: 'error' }));
     }
@@ -39,21 +70,70 @@ export default function ComplaintsPage() {
   const progress = async (item, status) => {
     try {
       const { data: response } = await api.patch(`/complaints/${item._id}/status`, { status, note: 'Updated from staff dashboard' });
-      setData(items.map((x) => (x._id === item._id ? { ...x, ...response.data } : x)));
+      updateItem(item._id, response.data);
       dispatch(showToast({ message: `Task marked ${status}` }));
     } catch (err) {
       dispatch(showToast({ message: err.response?.data?.message || 'Task could not be updated', severity: 'error' }));
     }
   };
 
+  const sendQuote = async (e) => {
+    e.preventDefault();
+    try {
+      const { data: response } = await api.post(`/complaints/${quoteTarget._id}/quote`, { amount: Number(quoteForm.amount), note: quoteForm.note });
+      updateItem(quoteTarget._id, response.data);
+      setQuoteTarget(null);
+      dispatch(showToast({ message: 'Quote sent to the resident' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Quote could not be sent', severity: 'error' }));
+    }
+  };
+
+  const respondQuote = async (item, action) => {
+    try {
+      const { data: response } = await api.patch(`/complaints/${item._id}/quote/respond`, { action });
+      updateItem(item._id, response.data);
+      dispatch(showToast({ message: action === 'accept' ? 'Quote accepted. The team will begin work.' : 'Quote rejected.' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not respond to the quote', severity: 'error' }));
+    }
+  };
+
+  const payQuote = async (item) => {
+    try {
+      const { data: response } = await api.post(`/complaints/${item._id}/quote/pay`, { method: 'upi', reference: `WEB-${Date.now()}` });
+      updateItem(item._id, response.data);
+      dispatch(showToast({ message: 'Payment recorded. Thanks!' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Payment could not be recorded', severity: 'error' }));
+    }
+  };
+
+  const title = isResident
+    ? 'Maintenance requests'
+    : role === 'Staff' ? 'Assigned maintenance tasks' : 'Complaint management';
+  const eyebrow = isResident ? 'Home & community upkeep' : 'Service operations';
+
   return (
     <>
       <PageHeader
-        eyebrow={role === 'Resident' ? 'Resident services' : 'Service operations'}
-        title={role === 'Staff' ? 'Assigned maintenance tasks' : role === 'Admin' || role === 'SuperAdmin' ? 'Complaint management' : 'Complaints & service requests'}
+        eyebrow={eyebrow}
+        title={title}
         description="Clear ownership, visible progress and a complete resolution history."
-        action={role === 'Resident' ? <button onClick={() => setOpen(true)} className="btn-primary"><Plus size={18} /> Raise complaint</button> : null}
+        action={isResident ? (
+          <div className="flex gap-2">
+            <button onClick={() => openCreate('personal')} className="btn-secondary !px-4"><Plus size={18} /> Personal issue</button>
+            <button onClick={() => openCreate('community')} className="btn-primary !px-4"><Users size={18} /> Community issue</button>
+          </div>
+        ) : null}
       />
+
+      {isResident && (
+        <div className="mb-6 flex gap-2">
+          <button onClick={() => setView('personal')} className={`rounded-full px-4 py-2 text-sm font-bold transition ${view === 'personal' ? 'bg-brand-600 text-white' : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-100'}`}>My maintenance</button>
+          <button onClick={() => setView('community')} className={`rounded-full px-4 py-2 text-sm font-bold transition ${view === 'community' ? 'bg-brand-600 text-white' : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-100'}`}>Community issues</button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard title="Open" value={items.filter((x) => x.status === 'open').length} icon={Clock3} color="orange" />
@@ -62,43 +142,96 @@ export default function ComplaintsPage() {
       </div>
 
       <div className="mt-7 grid gap-4">
-        {items.map((item) => (
-          <article key={item._id} className="card p-5">
-            <div className="flex flex-col justify-between gap-4 md:flex-row">
-              <div className="flex gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-600">
-                  <Wrench />
+        {items.map((item) => {
+          const quote = item.quote;
+          const hasQuote = quote && quote.status !== 'none';
+          return (
+            <article key={item._id} className="card p-5">
+              <div className="flex flex-col justify-between gap-4 md:flex-row">
+                <div className="flex gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-600">
+                    <Wrench />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-lg font-bold capitalize">{item.category} issue</h3>
+                      {item.scope === 'community' && <span className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2.5 py-0.5 text-xs font-bold text-mint-600"><Users size={12} /> Community</span>}
+                      <StatusBadge value={item.status} />
+                    </div>
+                    <p className="mt-2 text-sm text-slate-500">{item.description}</p>
+                    <div className="mt-3 text-xs text-slate-400">
+                      {String(item._id).slice(-8)} - {new Date(item.createdAt).toLocaleDateString('en-IN')}
+                      {item.unit && ` - ${item.unit.blockName}-${item.unit.unitNumber}`}
+                      {item.scope === 'community' && item.raisedBy?.name && ` - reported by ${item.raisedBy.name}`}
+                    </div>
+                    {!!item.images?.length && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.images.map((img) => (
+                          <a key={img} href={uploadUrl(img)} target="_blank" rel="noreferrer" className="block h-16 w-16 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                            <img src={uploadUrl(img)} alt="Attached evidence" className="h-full w-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {item.scope === 'personal' && hasQuote && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                        <Receipt size={14} />
+                        <span>Quote: {currency(quote.amount)}{quote.note ? ` — ${quote.note}` : ''}</span>
+                        <span className="capitalize">({quote.status}{quote.status === 'accepted' ? `, ${quote.paymentStatus}` : ''})</span>
+                      </div>
+                    )}
+
+                    {isResident && item.scope === 'personal' && quote?.status === 'pending' && (
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => respondQuote(item, 'accept')} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Accept quote</button>
+                        <button onClick={() => respondQuote(item, 'reject')} className="rounded-xl border-2 border-red-200 px-4 py-2 text-xs font-bold text-red-600">Reject</button>
+                      </div>
+                    )}
+
+                    {isResident && item.scope === 'personal' && quote?.status === 'accepted' && item.status === 'resolved' && quote.paymentStatus === 'unpaid' && (
+                      <button onClick={() => payQuote(item)} className="btn-primary mt-3 !py-2 text-sm"><IndianRupee size={16} /> Pay {currency(quote.amount)}</button>
+                    )}
+
+                    {quote?.paymentStatus === 'paid' && (
+                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                        <CheckCircle2 size={13} /> Paid {currency(quote.amount)}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display text-lg font-bold capitalize">{item.category} issue</h3>
-                    <StatusBadge value={item.status} />
-                  </div>
-                  <p className="mt-2 text-sm text-slate-500">{item.description}</p>
-                  <div className="mt-3 text-xs text-slate-400">
-                    {String(item._id).slice(-8)} - {new Date(item.createdAt).toLocaleDateString('en-IN')}
-                    {item.unit && ` - ${item.unit.blockName}-${item.unit.unitNumber}`}
-                  </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button onClick={() => setSelected(item)} className="btn-secondary !px-4 !py-2 text-sm"><MessageSquare size={16} /> Timeline</button>
+                  {isStaff && item.scope === 'personal' && (!quote || quote.status === 'none' || quote.status === 'rejected') && (
+                    <button onClick={() => { setQuoteTarget(item); setQuoteForm({ amount: '', note: '' }); }} className="btn-primary !px-4 !py-2 text-sm"><Receipt size={16} /> Send quote</button>
+                  )}
+                  {role === 'Staff' && item.status !== 'resolved' && (item.scope !== 'personal' || quote?.status === 'accepted') && (
+                    <button onClick={() => progress(item, item.status === 'in-progress' ? 'resolved' : 'in-progress')} className="btn-primary !px-4 !py-2 text-sm">
+                      {item.status === 'in-progress' ? 'Complete' : 'Start task'}
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button onClick={() => setSelected(item)} className="btn-secondary !px-4 !py-2 text-sm"><MessageSquare size={16} /> Timeline</button>
-                {role === 'Staff' && item.status !== 'resolved' && (
-                  <button onClick={() => progress(item, item.status === 'in-progress' ? 'resolved' : 'in-progress')} className="btn-primary !px-4 !py-2 text-sm">
-                    {item.status === 'in-progress' ? 'Complete' : 'Start task'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
+        {!items.length && (
+          <div className="card p-10 text-center text-sm text-slate-500">
+            {isResident && view === 'community' ? 'No community issues reported yet.' : 'Nothing here yet.'}
+          </div>
+        )}
       </div>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogContent className="!p-7">
-          <div className="eyebrow">New service request</div>
-          <h2 className="mt-2 font-display text-2xl font-extrabold">Tell us what needs attention</h2>
+          <div className="eyebrow">{form.scope === 'community' ? 'Shared / common area' : 'New service request'}</div>
+          <h2 className="mt-2 font-display text-2xl font-extrabold">{form.scope === 'community' ? 'Report a community issue' : 'Tell us what needs attention'}</h2>
           <form onSubmit={create} className="mt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setForm({ ...form, scope: 'personal' })} className={`rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition ${form.scope === 'personal' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-earth-300 text-earth-500'}`}>Personal maintenance</button>
+              <button type="button" onClick={() => setForm({ ...form, scope: 'community' })} className={`rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition ${form.scope === 'community' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-earth-300 text-earth-500'}`}>Community maintenance</button>
+            </div>
+            <p className="text-xs text-earth-500">{form.scope === 'community' ? 'Visible to every resident, so neighbours know it’s already flagged (e.g. a dirty shared pool or a broken gate).' : 'The maintenance team will send you a quote before any work is scheduled.'}</p>
             <label>
               <span className="mb-2 block text-sm font-bold">Category</span>
               <select className="field" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -117,11 +250,32 @@ export default function ComplaintsPage() {
                 placeholder="Describe the issue and where it is happening..."
               />
             </label>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 p-5 text-sm font-bold text-slate-500">
-              <Upload size={18} /> Add photos
-              <input className="hidden" type="file" multiple accept="image/*" />
+            <ImageUploader
+              images={images}
+              setImages={setImages}
+              highlight={voiceFilled}
+              hint="Adding a clear photo helps the maintenance team come prepared."
+            />
+            <button className="btn-primary w-full">{form.scope === 'community' ? 'Report to the community' : 'Submit complaint'}</button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!quoteTarget} onClose={() => setQuoteTarget(null)} fullWidth maxWidth="xs">
+        <DialogContent className="!p-7">
+          <div className="eyebrow">Price the job</div>
+          <h2 className="mt-2 font-display text-2xl font-extrabold">Send a quote</h2>
+          <p className="mt-1 text-sm text-slate-500">{quoteTarget?.description}</p>
+          <form onSubmit={sendQuote} className="mt-6 space-y-4">
+            <label>
+              <span className="mb-2 block text-sm font-bold">Amount (₹)</span>
+              <input className="field" type="number" min="1" step="1" required value={quoteForm.amount} onChange={(e) => setQuoteForm({ ...quoteForm, amount: e.target.value })} placeholder="e.g. 500" />
             </label>
-            <button className="btn-primary w-full">Submit complaint</button>
+            <label>
+              <span className="mb-2 block text-sm font-bold">Note (optional)</span>
+              <textarea className="field" rows="3" value={quoteForm.note} onChange={(e) => setQuoteForm({ ...quoteForm, note: e.target.value })} placeholder="What's included, parts needed, etc." />
+            </label>
+            <button className="btn-primary w-full"><Receipt size={16} /> Send quote to resident</button>
           </form>
         </DialogContent>
       </Dialog>

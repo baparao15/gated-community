@@ -15,6 +15,11 @@ const complaintSchema = new mongoose.Schema(
       enum: ['plumbing', 'electrical', 'cleaning', 'security', 'elevator', 'parking', 'noise', 'other'],
       required: true,
     },
+    scope: {
+      type: String,
+      enum: ['personal', 'community'],
+      default: 'personal',
+    },
     description: { type: String, required: true },
     images: [{ type: String }],
     priority: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
@@ -29,6 +34,21 @@ const complaintSchema = new mongoose.Schema(
     closedAt: { type: Date },
     rating: { type: Number, min: 1, max: 5 },
     feedback: { type: String },
+    // Personal maintenance jobs go through a quote: staff price the work, the resident
+    // accepts/rejects it, and once the work is done the resident pays through it.
+    // Community-scoped issues never get a quote — there's no single payer.
+    quote: {
+      amount: { type: Number },
+      note: { type: String },
+      quotedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      quotedAt: { type: Date },
+      status: { type: String, enum: ['none', 'pending', 'accepted', 'rejected'], default: 'none' },
+      respondedAt: { type: Date },
+      paymentStatus: { type: String, enum: ['unpaid', 'paid'], default: 'unpaid' },
+      paymentMethod: { type: String },
+      paymentReference: { type: String },
+      paidAt: { type: Date },
+    },
     internalComments: [commentSchema],
     statusHistory: [
       {

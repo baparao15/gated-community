@@ -5,6 +5,7 @@ const { authorize } = require('../middleware/rbac');
 
 // Admin: user management
 router.get('/users', protect, authorize('Admin', 'SuperAdmin'), ctrl.listUsers);
+router.post('/users', protect, authorize('Admin', 'SuperAdmin'), ctrl.createUser);
 router.get('/users/:id', protect, ctrl.getUserById);
 router.patch('/users/:id/approve', protect, authorize('Admin', 'SuperAdmin'), ctrl.approveUser);
 router.patch('/users/:id/status', protect, authorize('Admin', 'SuperAdmin'), ctrl.updateUserStatus);

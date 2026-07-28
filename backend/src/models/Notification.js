@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
         'complaint_updated', 'complaint_assigned', 'complaint_resolved',
         'announcement', 'emergency',
         'booking_status', 'invoice_generated', 'invoice_overdue',
-        'payment_received', 'general',
+        'payment_received', 'marketplace_order', 'general',
       ],
       required: true,
     },
@@ -19,7 +19,7 @@ const notificationSchema = new mongoose.Schema(
     isRead: { type: Boolean, default: false },
     readAt: { type: Date },
     relatedEntity: {
-      model: { type: String, enum: ['Visitor', 'Complaint', 'Announcement', 'Booking', 'Invoice', 'Payment'] },
+      model: { type: String, enum: ['Visitor', 'Complaint', 'Announcement', 'Booking', 'Invoice', 'Payment', 'Product'] },
       id: { type: mongoose.Schema.Types.ObjectId },
     },
   },

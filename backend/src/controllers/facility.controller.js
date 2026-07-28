@@ -5,6 +5,42 @@ const ResidentProfile = require('../models/ResidentProfile');
 const { emitToUser } = require('../utils/socket');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/response');
 
+const SLOT_MINUTES = 40;
+
+// Generates every SLOT_MINUTES-wide slot across all of a facility's shifts for one
+// calendar day (e.g. a gym with a 5:30-11:00 and a 16:00-23:00 shift gets two runs of slots).
+const buildDailySlots = (dateStr, openHours) => {
+  const slots = [];
+  for (const shift of openHours) {
+    const [startH, startM] = shift.start.split(':').map(Number);
+    const [endH, endM] = shift.end.split(':').map(Number);
+    const shiftStart = new Date(dateStr);
+    shiftStart.setHours(startH, startM, 0, 0);
+    const shiftEnd = new Date(dateStr);
+    shiftEnd.setHours(endH, endM, 0, 0);
+
+    let cursor = new Date(shiftStart);
+    while (cursor.getTime() + SLOT_MINUTES * 60000 <= shiftEnd.getTime()) {
+      const start = new Date(cursor);
+      const end = new Date(cursor.getTime() + SLOT_MINUTES * 60000);
+      slots.push({ start, end });
+      cursor = end;
+    }
+  }
+  return slots;
+};
+
+// A booking must fit entirely inside one of the facility's open shifts on its day.
+const isWithinOpenHours = (facility, start, end) => facility.openHours.some((shift) => {
+  const [startH, startM] = shift.start.split(':').map(Number);
+  const [endH, endM] = shift.end.split(':').map(Number);
+  const shiftStart = new Date(start);
+  shiftStart.setHours(startH, startM, 0, 0);
+  const shiftEnd = new Date(start);
+  shiftEnd.setHours(endH, endM, 0, 0);
+  return start >= shiftStart && end <= shiftEnd;
+});
+
 // ── Facilities ─────────────────────────────────────────────────────────────────
 const listFacilities = async (req, res) => {
   const { type } = req.query;
@@ -47,9 +83,17 @@ const checkAvailability = async (req, res) => {
     slotEnd: { $lte: dayEnd },
   }).select('slotStart slotEnd status bookedBy');
 
+  const now = new Date();
+  const availableSlots = buildDailySlots(date, facility.openHours).filter((slot) => {
+    if (slot.start < now) return false;
+    return !bookedSlots.some((b) => slot.start < b.slotEnd && slot.end > b.slotStart);
+  });
+
   return sendSuccess(res, 'Availability fetched', {
     facility: { id: facility._id, name: facility.name, openHours: facility.openHours },
     date,
+    slotMinutes: SLOT_MINUTES,
+    availableSlots,
     bookedSlots,
     rules: facility.bookingRules,
   });
@@ -70,6 +114,10 @@ const requestBooking = async (req, res) => {
   if (hours <= 0) return sendError(res, 'Invalid slot times', null, 400);
   if (hours > facility.bookingRules.maxSlotHours) {
     return sendError(res, `Maximum booking duration is ${facility.bookingRules.maxSlotHours} hours`, null, 400);
+  }
+
+  if (!isWithinOpenHours(facility, start, end)) {
+    return sendError(res, `Selected time is outside ${facility.name}'s operating hours`, null, 400);
   }
 
   // Advance booking check

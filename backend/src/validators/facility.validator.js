@@ -5,10 +5,12 @@ const createFacilitySchema = Joi.object({
   type: Joi.string().valid('gym', 'pool', 'clubhouse', 'tennis-court', 'playground', 'party-hall', 'conference-room', 'other').required(),
   description: Joi.string().max(500).optional(),
   capacity: Joi.number().integer().min(1).required(),
-  openHours: Joi.object({
-    start: Joi.string().optional(),
-    end: Joi.string().optional(),
-  }).optional(),
+  openHours: Joi.array().items(
+    Joi.object({
+      start: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
+      end: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
+    })
+  ).min(1).optional(),
   bookingRules: Joi.object({
     maxSlotHours: Joi.number().optional(),
     advanceBookingDays: Joi.number().optional(),

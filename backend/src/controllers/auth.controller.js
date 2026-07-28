@@ -1,11 +1,15 @@
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const ResidentProfile = require('../models/ResidentProfile');
+const Unit = require('../models/Unit');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { generateResetToken, hashToken } = require('../utils/otp');
 const { sendSuccess, sendError } = require('../utils/response');
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const register = async (req, res) => {
-  const { name, email, phone, password, unitId } = req.body;
+  const { name, email, phone, password, unitId, unitNumber } = req.body;
 
   const existing = await User.findOne({ email });
   if (existing) return sendError(res, 'Email already registered', null, 409);
@@ -13,11 +17,84 @@ const register = async (req, res) => {
   const passwordHash = await User.hashPassword(password);
   const user = await User.create({ name, email, phone, passwordHash, role: 'Resident', status: 'pending' });
 
-  if (unitId) {
-    await ResidentProfile.create({ user: user._id, unit: unitId });
+  let linkedUnitId = unitId;
+  if (!linkedUnitId && unitNumber) {
+    const unit = await Unit.findOne({ unitNumber, isActive: true });
+    if (unit) {
+      linkedUnitId = unit._id;
+      if (!unit.owner) {
+        unit.owner = user._id;
+        unit.occupancyStatus = 'owner-occupied';
+        await unit.save();
+      }
+    }
+  }
+
+  if (linkedUnitId) {
+    await ResidentProfile.create({ user: user._id, unit: linkedUnitId });
   }
 
   return sendSuccess(res, 'Registration successful. Awaiting admin approval.', { userId: user._id }, 201);
+};
+
+// Sign in (or sign up, if the email hasn't been seen before) with a Google ID token
+// from the frontend's Google Identity Services button. New accounts still land in
+// 'pending' status — Google only verifies identity, not community membership, so
+// admin approval is still required exactly like a normal registration.
+const googleAuth = async (req, res) => {
+  const { credential } = req.body;
+
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return sendError(res, 'Google sign-in is not configured on the server.', null, 503);
+  }
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
+    payload = ticket.getPayload();
+  } catch {
+    return sendError(res, 'Invalid Google credential', null, 401);
+  }
+
+  if (!payload?.email_verified) return sendError(res, 'Google account email is not verified', null, 401);
+
+  const email = payload.email.toLowerCase();
+  let user = await User.findOne({ email, isDeleted: false }).select('+refreshToken +googleId');
+
+  if (!user) {
+    const passwordHash = await User.hashPassword(generateResetToken());
+    user = await User.create({
+      name: payload.name || email.split('@')[0],
+      email,
+      googleId: payload.sub,
+      passwordHash,
+      role: 'Resident',
+      status: 'pending',
+      avatar: payload.picture,
+    });
+    return sendSuccess(res, 'Registration submitted via Google. Awaiting admin approval.', { pending: true, userId: user._id }, 201);
+  }
+
+  if (!user.googleId) {
+    user.googleId = payload.sub;
+    await user.save();
+  }
+
+  if (user.status === 'pending') return sendError(res, 'Account pending admin approval', null, 403);
+  if (user.status === 'suspended') return sendError(res, 'Account suspended', null, 403);
+  if (user.status === 'deactivated') return sendError(res, 'Account deactivated', null, 403);
+
+  const tokenPayload = { id: user._id, role: user.role };
+  const accessToken = signAccessToken(tokenPayload);
+  const refreshToken = signRefreshToken(tokenPayload);
+  user.refreshToken = refreshToken;
+  await user.save();
+
+  return sendSuccess(res, 'Login successful', {
+    accessToken,
+    refreshToken,
+    user: { id: user._id, name: user.name, email: user.email, role: user.role },
+  });
 };
 
 const login = async (req, res) => {
@@ -122,6 +199,19 @@ const getMe = async (req, res) => {
   return sendSuccess(res, 'Profile fetched', user);
 };
 
+const updateMe = async (req, res) => {
+  const { name, phone, avatar } = req.body;
+  const update = {};
+  if (name !== undefined) update.name = name;
+  if (phone !== undefined) update.phone = phone;
+  if (avatar !== undefined) update.avatar = avatar;
+
+  if (!Object.keys(update).length) return sendError(res, 'No profile fields provided', null, 400);
+
+  const user = await User.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
+  return sendSuccess(res, 'Profile updated', user);
+};
+
 const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
@@ -136,4 +226,4 @@ const changePassword = async (req, res) => {
   return sendSuccess(res, 'Password changed successfully');
 };
 
-module.exports = { register, login, refresh, logout, forgotPassword, resetPassword, getMe, changePassword };
+module.exports = { register, login, googleAuth, refresh, logout, forgotPassword, resetPassword, getMe, updateMe, changePassword };

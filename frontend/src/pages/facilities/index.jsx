@@ -57,7 +57,7 @@ export default function FacilitiesPage() {
               </div>
               <div className="mt-5 grid gap-3 text-sm text-earth-700 dark:text-earth-200">
                 <div className="flex items-center gap-2"><UsersRound size={16} /> Capacity {facility.capacity || 20}</div>
-                <div className="flex items-center gap-2"><Clock size={16} /> {facility.openHours?.start || '06:00'} - {facility.openHours?.end || '22:00'}</div>
+                <div className="flex items-center gap-2"><Clock size={16} /> {(facility.openHours?.length ? facility.openHours : [{ start: '06:00', end: '22:00' }]).map((oh) => `${oh.start}-${oh.end}`).join(', ')}</div>
                 <div className="flex items-center gap-2"><CalendarDays size={16} /> Advance booking supported</div>
               </div>
               <button className="btn-primary mt-5 w-full">Book facility</button>

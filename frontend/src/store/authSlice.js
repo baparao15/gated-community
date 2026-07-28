@@ -26,6 +26,17 @@ const authSlice = createSlice({
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('community_user');
     },
+    // Used by non-form sign-in flows (Google) that resolve tokens outside the
+    // login thunk's request/response shape.
+    setCredentials(state, action) {
+      const { user, accessToken, refreshToken } = action.payload;
+      state.user = user;
+      state.token = accessToken;
+      state.error = null;
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+      localStorage.setItem('community_user', JSON.stringify(user));
+    },
   },
   extraReducers: (builder) => builder
     .addCase(login.pending, (state) => { state.loading = true; state.error = null; })
@@ -40,5 +51,5 @@ const authSlice = createSlice({
     .addCase(login.rejected, (state, action) => { state.loading = false; state.error = action.payload; }),
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, setCredentials } = authSlice.actions;
 export default authSlice.reducer;

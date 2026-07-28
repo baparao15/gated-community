@@ -95,9 +95,24 @@ const run = async () => {
 
   // ── Facilities ─────────────────────────────────────────────────────────────
   const facilities = await Facility.insertMany([
-    { name: 'Community Gym', type: 'gym', description: 'Fully equipped gym', capacity: 20, amenities: ['treadmill', 'weights'] },
-    { name: 'Swimming Pool', type: 'pool', description: 'Olympic size pool', capacity: 30, amenities: ['lifeguard'] },
-    { name: 'Clubhouse Hall', type: 'party-hall', description: 'Party hall for events', capacity: 100, bookingRules: { maxSlotHours: 6, advanceBookingDays: 30, cancellationHours: 48, requiresApproval: true }, amenities: ['sound-system', 'catering-area'] },
+    {
+      name: 'Community Gym', type: 'gym', description: 'Fully equipped gym', capacity: 20,
+      openHours: [{ start: '05:30', end: '11:00' }, { start: '16:00', end: '23:00' }],
+      bookingRules: { maxSlotHours: 1, advanceBookingDays: 7, cancellationHours: 2, requiresApproval: false },
+      amenities: ['treadmill', 'weights'],
+    },
+    {
+      name: 'Swimming Pool', type: 'pool', description: 'Olympic size pool', capacity: 30,
+      openHours: [{ start: '06:00', end: '10:00' }, { start: '16:00', end: '20:00' }],
+      bookingRules: { maxSlotHours: 1, advanceBookingDays: 7, cancellationHours: 2, requiresApproval: false },
+      amenities: ['lifeguard'],
+    },
+    {
+      name: 'Clubhouse Hall', type: 'party-hall', description: 'Party hall for events', capacity: 100,
+      openHours: [{ start: '06:00', end: '22:00' }],
+      bookingRules: { maxSlotHours: 6, advanceBookingDays: 30, cancellationHours: 48, requiresApproval: true },
+      amenities: ['sound-system', 'catering-area'],
+    },
   ]);
   logger.info(`Seed: created ${facilities.length} facilities`);
 

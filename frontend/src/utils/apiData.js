@@ -28,3 +28,5 @@ export const unitLabel = (unit) => {
   if (!unit) return '-';
   return [unit.blockName, unit.unitNumber].filter(Boolean).join('-') || '-';
 };
+
+export const uploadUrl = (path) => (path ? `/${String(path).replace(/\\/g, '/').replace(/^\/+/, '')}` : '');

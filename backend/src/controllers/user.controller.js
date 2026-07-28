@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Unit = require('../models/Unit');
 const ResidentProfile = require('../models/ResidentProfile');
 const AuditLog = require('../models/AuditLog');
+const { sendApprovalEmail } = require('../utils/email');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/response');
 
 // ── Admin: list users ──────────────────────────────────────────────────────────
@@ -24,6 +25,46 @@ const listUsers = async (req, res) => {
     limit: parseInt(limit),
     pages: Math.ceil(total / parseInt(limit)),
   });
+};
+
+const createUser = async (req, res) => {
+  const { name, email, phone, password, role = 'Resident', status = 'active', unitNumber } = req.body;
+
+  const allowedRoles = ['Admin', 'Resident', 'Guard', 'Staff'];
+  if (!allowedRoles.includes(role)) return sendError(res, 'Invalid role', null, 400);
+  if (!['active', 'pending', 'suspended', 'deactivated'].includes(status)) {
+    return sendError(res, 'Invalid status value', null, 400);
+  }
+
+  const existing = await User.findOne({ email });
+  if (existing) return sendError(res, 'Email already registered', null, 409);
+
+  const passwordHash = await User.hashPassword(password || 'password123');
+  const user = await User.create({ name, email, phone, passwordHash, role, status });
+
+  if (role === 'Resident' && unitNumber) {
+    let unit = null;
+    unit = await Unit.findOne({ unitNumber, isActive: true });
+    if (unit) {
+      await ResidentProfile.create({ user: user._id, unit: unit._id });
+    }
+    if (unit && !unit.owner) {
+      unit.owner = user._id;
+      unit.occupancyStatus = 'owner-occupied';
+      await unit.save();
+    }
+  }
+
+  await AuditLog.create({
+    actor: req.user._id,
+    actorEmail: req.user.email,
+    action: 'CREATE_USER',
+    entity: 'User',
+    entityId: user._id,
+    ip: req.ip,
+  });
+
+  return sendSuccess(res, 'User created', user, 201);
 };
 
 const getUserById = async (req, res) => {
@@ -49,12 +90,15 @@ const approveUser = async (req, res) => {
     ip: req.ip,
   });
 
+  // Best-effort — a slow/unconfigured mail server should never block the approval itself.
+  sendApprovalEmail(user).catch(() => {});
+
   return sendSuccess(res, 'User approved', user);
 };
 
 const updateUserStatus = async (req, res) => {
   const { status } = req.body;
-  const allowed = ['active', 'suspended', 'deactivated'];
+  const allowed = ['active', 'pending', 'suspended', 'deactivated'];
   if (!allowed.includes(status)) return sendError(res, 'Invalid status value', null, 400);
 
   const user = await User.findOneAndUpdate(
@@ -192,7 +236,7 @@ const updateUnit = async (req, res) => {
 };
 
 module.exports = {
-  listUsers, getUserById, approveUser, updateUserStatus, updateUserRole, deleteUser,
+  listUsers, createUser, getUserById, approveUser, updateUserStatus, updateUserRole, deleteUser,
   getMyProfile, updateMyProfile, addTenant,
   listUnits, createUnit, updateUnit,
 };

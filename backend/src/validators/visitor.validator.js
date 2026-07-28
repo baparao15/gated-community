@@ -5,9 +5,9 @@ const preApproveSchema = Joi.object({
   phone: Joi.string().required(),
   purpose: Joi.string().min(2).max(200).required(),
   validFrom: Joi.date().iso().optional(),
-  validUntil: Joi.date().iso().min('now').optional(),
-  vehicleNumber: Joi.string().optional(),
-  notes: Joi.string().max(500).optional(),
+  validUntil: Joi.date().iso().min('now').optional().allow(''),
+  vehicleNumber: Joi.string().allow('').optional(),
+  notes: Joi.string().max(500).allow('').optional(),
 });
 
 const walkInSchema = Joi.object({
@@ -16,8 +16,8 @@ const walkInSchema = Joi.object({
   purpose: Joi.string().min(2).max(200).required(),
   unitId: Joi.string().hex().length(24).required(),
   hostId: Joi.string().hex().length(24).required(),
-  vehicleNumber: Joi.string().optional(),
-  notes: Joi.string().max(500).optional(),
+  vehicleNumber: Joi.string().allow('').optional(),
+  notes: Joi.string().max(500).allow('').optional(),
 });
 
 const verifySchema = Joi.object({

@@ -10,9 +10,11 @@ const facilitySchema = new mongoose.Schema(
     },
     description: { type: String },
     capacity: { type: Number, required: true },
+    // An array so a facility can have more than one daily shift (e.g. a gym open
+    // 5:30-11:00 and again 16:00-23:00, closed for maintenance in between).
     openHours: {
-      start: { type: String, default: '06:00' },
-      end: { type: String, default: '22:00' },
+      type: [{ start: { type: String, required: true }, end: { type: String, required: true }, _id: false }],
+      default: [{ start: '06:00', end: '22:00' }],
     },
     bookingRules: {
       maxSlotHours: { type: Number, default: 2 },

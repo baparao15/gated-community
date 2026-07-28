@@ -16,8 +16,8 @@ router.post('/alerts/emergency', protect, authorize('Admin', 'SuperAdmin', 'Guar
 
 // Forum
 router.get('/forum/posts', protect, authorize('Resident', 'Admin', 'SuperAdmin'), ctrl.listPosts);
-router.post('/forum/posts', protect, authorize('Resident'), upload.array('images', 4), ctrl.createPost);
+router.post('/forum/posts', protect, authorize('Resident', 'Admin', 'SuperAdmin'), upload.array('images', 4), ctrl.createPost);
 router.post('/forum/posts/:id/comment', protect, authorize('Resident', 'Admin', 'SuperAdmin'), ctrl.addComment);
-router.post('/forum/posts/:id/like', protect, authorize('Resident'), ctrl.likePost);
+router.post('/forum/posts/:id/like', protect, authorize('Resident', 'Admin', 'SuperAdmin'), ctrl.likePost);
 
 module.exports = router;

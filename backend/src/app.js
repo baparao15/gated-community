@@ -21,6 +21,9 @@ const paymentRoutes = require('./routes/payment.routes');
 const facilityRoutes = require('./routes/facility.routes');
 const securityRoutes = require('./routes/security.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const voiceRoutes = require('./routes/voice.routes');
+const marketplaceRoutes = require('./routes/marketplace.routes');
+const businessRoutes = require('./routes/business.routes');
 
 const app = express();
 
@@ -89,6 +92,9 @@ app.use(API, paymentRoutes);
 app.use(API, facilityRoutes);
 app.use(API, securityRoutes);
 app.use(API, dashboardRoutes);
+app.use(API, voiceRoutes);
+app.use(`${API}/marketplace`, marketplaceRoutes);
+app.use(`${API}/business`, businessRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

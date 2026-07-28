@@ -4,6 +4,7 @@ const createComplaintSchema = Joi.object({
   category: Joi.string()
     .valid('plumbing', 'electrical', 'cleaning', 'security', 'elevator', 'parking', 'noise', 'other')
     .required(),
+  scope: Joi.string().valid('personal', 'community').optional(),
   description: Joi.string().min(10).max(2000).required(),
   priority: Joi.string().valid('low', 'medium', 'high', 'critical').optional(),
 });
@@ -26,4 +27,21 @@ const feedbackSchema = Joi.object({
   feedback: Joi.string().max(1000).optional(),
 });
 
-module.exports = { createComplaintSchema, assignSchema, statusSchema, prioritySchema, feedbackSchema };
+const quoteSchema = Joi.object({
+  amount: Joi.number().positive().required(),
+  note: Joi.string().max(500).optional(),
+});
+
+const quoteResponseSchema = Joi.object({
+  action: Joi.string().valid('accept', 'reject').required(),
+});
+
+const quotePaymentSchema = Joi.object({
+  method: Joi.string().valid('cash', 'bank-transfer', 'cheque', 'online', 'upi', 'other').required(),
+  reference: Joi.string().max(100).optional(),
+});
+
+module.exports = {
+  createComplaintSchema, assignSchema, statusSchema, prioritySchema, feedbackSchema,
+  quoteSchema, quoteResponseSchema, quotePaymentSchema,
+};

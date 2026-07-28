@@ -122,7 +122,11 @@ export function ForumPage() {
   const like = async (post) => {
     try {
       const { data: response } = await api.post(`/forum/posts/${post._id}/like`);
-      setData(posts.map((item) => (item._id === post._id ? response.data : item)));
+      setData(posts.map((item) => (
+        item._id === post._id
+          ? { ...item, likesCount: response.data.likes, likes: Array.from({ length: response.data.likes }) }
+          : item
+      )));
     } catch (err) {
       dispatch(showToast({ message: err.response?.data?.message || 'Post could not be liked', severity: 'error' }));
     }

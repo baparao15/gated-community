@@ -11,6 +11,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// The backend rotates the refresh token on every use and rejects the previous one, so
+// when several requests 401 at the same moment they must share a single refresh call —
+// otherwise every request but the first would race with an already-stale token and get
+// the whole session logged out.
+let refreshPromise = null;
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -25,10 +31,17 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && refreshToken && !isAuthRequest && !original._retry) {
       original._retry = true;
       try {
-        const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken });
-        localStorage.setItem('access_token', data.data.accessToken);
-        localStorage.setItem('refresh_token', data.data.refreshToken);
-        original.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        if (!refreshPromise) {
+          refreshPromise = axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken })
+            .then(({ data }) => {
+              localStorage.setItem('access_token', data.data.accessToken);
+              localStorage.setItem('refresh_token', data.data.refreshToken);
+              return data.data.accessToken;
+            })
+            .finally(() => { refreshPromise = null; });
+        }
+        const accessToken = await refreshPromise;
+        original.headers.Authorization = `Bearer ${accessToken}`;
         return api(original);
       } catch (refreshError) {
         localStorage.removeItem('access_token');
