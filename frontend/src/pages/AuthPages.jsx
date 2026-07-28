@@ -71,7 +71,7 @@ export function LoginPage() {
     <form className="mt-8 space-y-5" onSubmit={submit}>
       <label className="block"><span className="mb-2 block text-sm font-bold">Email address</span><input className="field" type="email" required placeholder="you@example.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
       <label className="block"><div className="mb-2 flex justify-between"><span className="text-sm font-bold">Password</span><Link to="/forgot-password" className="text-sm font-bold text-brand-600">Forgot password?</Link></div><div className="relative"><input className="field pr-12" type={show?'text':'password'} required placeholder="••••••••" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)} className="absolute right-4 top-3.5 text-earth-500">{show?<EyeOff size={19}/>:<Eye size={19}/>}</button></div></label>
-      {error && <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</div>}
+      {error && <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error} New here? <Link to="/register" className="underline">Register</Link> instead.</div>}
       <label className="flex items-center gap-2 text-sm text-earth-500"><input type="checkbox" defaultChecked className="accent-brand-600"/> Remember me on this device</label>
       <button className="btn-primary w-full" disabled={loading}>{loading?<CircularProgress size={20} color="inherit"/>:<><LockKeyhole size={18}/> Sign in securely</>}</button>
     </form>
