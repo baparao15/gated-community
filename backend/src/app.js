@@ -29,8 +29,14 @@ const app = express();
 
 // ── Security ───────────────────────────────────────────────────────────────────
 app.use(helmet());
+// CLIENT_URL may hold one origin or a comma-separated list (e.g. local dev + the
+// deployed frontend), so both can call this API without swapping the env var around.
+const allowedOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: allowedOrigins.length ? allowedOrigins : '*',
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
