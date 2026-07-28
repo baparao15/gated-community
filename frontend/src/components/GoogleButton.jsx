@@ -45,6 +45,10 @@ export default function GoogleButton() {
         dispatch(setCredentials(data.data));
         navigate('/app/dashboard');
       } catch (err) {
+        if (err.response?.status === 403 && err.response?.data?.message?.toLowerCase().includes('pending')) {
+          dispatch(showToast({ message: 'Sign-in initiated! You’ll get access once an admin approves your account.' }));
+          return;
+        }
         dispatch(showToast({ message: err.response?.data?.message || 'Google sign-in failed', severity: 'error' }));
       }
     };
