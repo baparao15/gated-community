@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
@@ -20,6 +21,7 @@ export function ResidentsPage() {
   const users = asList(data);
   const dispatch = useDispatch();
   const [unitOpen, setUnitOpen] = useState(false);
+  const [createdUnit, setCreatedUnit] = useState(null);
   const [residentOpen, setResidentOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
@@ -49,10 +51,10 @@ export function ResidentsPage() {
       area: unitForm.area ? Number(unitForm.area) : undefined,
     };
     try {
-      await api.post('/units', payload);
-      setUnitOpen(false);
+      const { data: response } = await api.post('/units', payload);
+      setCreatedUnit(response.data);
       setUnitForm({ blockName: '', unitNumber: '', floor: '', type: 'apartment', bedrooms: '', area: '', occupancyStatus: 'vacant' });
-      dispatch(showToast({ message: 'Unit created' }));
+      dispatch(showToast({ message: `Unit ${payload.unitNumber} created` }));
     } catch (err) {
       toastError(err, 'Unit could not be created');
     }
@@ -114,7 +116,47 @@ export function ResidentsPage() {
       <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400 dark:bg-slate-900"><tr><th className="px-5 py-3">Name</th><th>Contact</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>{visibleUsers.map((user) => <tr key={user._id} className="border-t border-slate-100 dark:border-slate-800"><td className="px-5 py-4 font-bold">{user.name}</td><td>{user.email}<div className="text-xs text-slate-400">{user.phone}</div></td><td>{user.role}</td><td><StatusBadge value={user.status} /></td><td className="space-x-3">{user.status === 'pending' && <button onClick={() => approve(user)} className="font-bold text-emerald-600">Approve</button>}<button onClick={() => openManage(user)} className="font-bold text-brand-600">Manage</button></td></tr>)}</tbody></table></div>
     </section>
 
-    <Dialog open={unitOpen} onClose={() => setUnitOpen(false)} fullWidth maxWidth="sm"><DialogContent className="!p-7"><h2 className="font-display text-2xl font-extrabold">Add unit</h2><form onSubmit={createUnit} className="mt-6 grid gap-4 sm:grid-cols-2">{[['Block', 'blockName'], ['Unit number', 'unitNumber'], ['Floor', 'floor'], ['Bedrooms', 'bedrooms'], ['Area', 'area']].map(([label, key]) => <label key={key}><span className="mb-2 block text-sm font-bold">{label}</span><input required={['blockName', 'unitNumber'].includes(key)} className="field" value={unitForm[key]} onChange={(event) => setUnitForm({ ...unitForm, [key]: event.target.value })} /></label>)}<label><span className="mb-2 block text-sm font-bold">Type</span><select className="field" value={unitForm.type} onChange={(event) => setUnitForm({ ...unitForm, type: event.target.value })}>{['apartment', 'villa', 'flat', 'studio'].map((item) => <option key={item}>{item}</option>)}</select></label><label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Occupancy</span><select className="field" value={unitForm.occupancyStatus} onChange={(event) => setUnitForm({ ...unitForm, occupancyStatus: event.target.value })}>{['vacant', 'owner-occupied', 'tenant-occupied'].map((item) => <option key={item}>{item}</option>)}</select></label><button className="btn-primary sm:col-span-2"><Plus size={18} /> Create unit</button></form></DialogContent></Dialog>
+    <Dialog open={unitOpen} onClose={() => { setUnitOpen(false); setCreatedUnit(null); }} fullWidth maxWidth="sm">
+      <DialogContent className="!p-7">
+        {createdUnit ? (
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <CheckCircle2 size={52} className="text-emerald-500" />
+            <h2 className="font-display text-2xl font-extrabold">Unit created!</h2>
+            <p className="text-sm text-slate-500">The apartment has been added to the community inventory.</p>
+            <div className="mt-2 w-full rounded-2xl bg-earth-50 p-5 text-left dark:bg-earth-800">
+              <div className="mb-3 text-xs font-extrabold uppercase tracking-widest text-brand-600">Apartment details</div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="block text-xs text-slate-400">Block</span><span className="font-bold">{createdUnit.blockName}</span></div>
+                <div><span className="block text-xs text-slate-400">Apartment number</span><span className="font-bold text-brand-700">{createdUnit.unitNumber}</span></div>
+                {createdUnit.floor != null && <div><span className="block text-xs text-slate-400">Floor</span><span className="font-bold">{createdUnit.floor}</span></div>}
+                {createdUnit.type && <div><span className="block text-xs text-slate-400">Type</span><span className="font-bold capitalize">{createdUnit.type}</span></div>}
+                {createdUnit.bedrooms != null && <div><span className="block text-xs text-slate-400">Bedrooms</span><span className="font-bold">{createdUnit.bedrooms}</span></div>}
+                <div><span className="block text-xs text-slate-400">Status</span><span className="font-bold capitalize">{createdUnit.occupancyStatus}</span></div>
+              </div>
+            </div>
+            <div className="mt-2 flex w-full gap-3">
+              <button onClick={() => { setCreatedUnit(null); }} className="btn-secondary flex-1"><Plus size={17} /> Add another</button>
+              <button onClick={() => { setUnitOpen(false); setCreatedUnit(null); }} className="btn-primary flex-1">Done</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h2 className="font-display text-2xl font-extrabold">Add unit</h2>
+            <form onSubmit={createUnit} className="mt-6 grid gap-4 sm:grid-cols-2">
+              {[['Block', 'blockName'], ['Unit number', 'unitNumber'], ['Floor', 'floor'], ['Bedrooms', 'bedrooms'], ['Area (sq ft)', 'area']].map(([label, key]) => (
+                <label key={key}>
+                  <span className="mb-2 block text-sm font-bold">{label}</span>
+                  <input required={['blockName', 'unitNumber'].includes(key)} className="field" value={unitForm[key]} onChange={(event) => setUnitForm({ ...unitForm, [key]: event.target.value })} />
+                </label>
+              ))}
+              <label><span className="mb-2 block text-sm font-bold">Type</span><select className="field" value={unitForm.type} onChange={(event) => setUnitForm({ ...unitForm, type: event.target.value })}>{['apartment', 'villa', 'flat', 'studio'].map((item) => <option key={item}>{item}</option>)}</select></label>
+              <label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Occupancy</span><select className="field" value={unitForm.occupancyStatus} onChange={(event) => setUnitForm({ ...unitForm, occupancyStatus: event.target.value })}>{['vacant', 'owner-occupied', 'tenant-occupied'].map((item) => <option key={item}>{item}</option>)}</select></label>
+              <button className="btn-primary sm:col-span-2"><Plus size={18} /> Create unit</button>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={residentOpen} onClose={() => setResidentOpen(false)} fullWidth maxWidth="sm"><DialogContent className="!p-7"><h2 className="font-display text-2xl font-extrabold">Add user</h2><form onSubmit={createResident} className="mt-6 grid gap-4 sm:grid-cols-2">{[['Full name', 'name'], ['Email', 'email'], ['Phone', 'phone'], ['Apartment number', 'unitNumber'], ['Temporary password', 'password']].map(([label, key]) => <label key={key} className={key === 'password' ? 'sm:col-span-2' : ''}><span className="mb-2 block text-sm font-bold">{label}</span><input required={['name', 'email', 'password'].includes(key)} type={key === 'email' ? 'email' : 'text'} className="field" value={residentForm[key]} onChange={(event) => setResidentForm({ ...residentForm, [key]: event.target.value })} /></label>)}<label><span className="mb-2 block text-sm font-bold">Role</span><select className="field" value={residentForm.role} onChange={(event) => setResidentForm({ ...residentForm, role: event.target.value })}>{roles.map((item) => <option key={item}>{item}</option>)}</select></label><label><span className="mb-2 block text-sm font-bold">Status</span><select className="field" value={residentForm.status} onChange={(event) => setResidentForm({ ...residentForm, status: event.target.value })}>{statuses.map((item) => <option key={item}>{item}</option>)}</select></label><button className="btn-primary sm:col-span-2"><UserPlus size={18} /> Create user</button></form></DialogContent></Dialog>
 

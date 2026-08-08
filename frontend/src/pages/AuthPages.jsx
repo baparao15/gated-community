@@ -13,7 +13,7 @@ function AuthFrame({ children, title, subtitle, wide = false }) {
   return (
     <div className="grid min-h-screen bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
       <div className="relative hidden overflow-hidden bg-earth-900 p-12 text-white lg:flex lg:flex-col">
-        <img src={panchayatMark} alt="" aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full opacity-[0.07] blur-[1px]" />
+        <img src={panchayatMark} alt="" aria-hidden="true" className="pointer-events-none absolute right-[-3rem] top-1/2 h-96 w-96 -translate-y-[60%] rounded-full opacity-[0.07] blur-[1px]" />
         <div className="absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl" />
         <Brand light />
         <div className="relative my-auto max-w-xl">

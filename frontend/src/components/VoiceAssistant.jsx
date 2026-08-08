@@ -20,7 +20,7 @@ const SILENCE_RMS_THRESHOLD = 0.02;
 const PREFERRED_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
 const pickMimeType = () => PREFERRED_MIME_TYPES.find((t) => window.MediaRecorder?.isTypeSupported?.(t)) || '';
 
-export default function VoiceAssistant() {
+export default function VoiceAssistant({ variant = 'fab' }) {
   const [status, setStatus] = useState('idle'); // idle | listening | thinking | done
   const [caption, setCaption] = useState('');
   const dispatch = useDispatch();
@@ -185,20 +185,37 @@ export default function VoiceAssistant() {
           {caption}
         </div>
       )}
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={busy}
-        className={`voice-fab ${status === 'listening' ? 'voice-fab-active' : ''} ${busy ? 'opacity-90' : ''}`}
-        aria-label={status === 'listening' ? 'Stop listening' : 'Ask the voice assistant'}
-        title="Voice assistant — try 'book the gym at 6pm' or 'sell homemade cake for 200'"
-      >
-        {status === 'listening'
-          ? <Square size={20} fill="currentColor" />
-          : busy
-            ? <Loader2 size={24} className="animate-spin" />
-            : <Mic size={24} />}
-      </button>
+      {variant === 'button' ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={busy}
+          className={`grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 transition dark:border-earth-700 dark:bg-earth-900 ${status === 'listening' ? 'border-red-400 text-red-500 dark:border-red-500 dark:text-red-400 animate-pulse' : 'hover:border-brand-400 hover:text-brand-600'} ${busy ? 'opacity-70' : ''}`}
+          aria-label={status === 'listening' ? 'Stop listening' : 'Voice assistant'}
+          title="Voice assistant — try 'book the gym at 6pm' or 'go to visitors'"
+        >
+          {status === 'listening'
+            ? <Square size={16} fill="currentColor" />
+            : busy
+              ? <Loader2 size={18} className="animate-spin" />
+              : <Mic size={18} />}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={busy}
+          className={`voice-fab ${status === 'listening' ? 'voice-fab-active' : ''} ${busy ? 'opacity-90' : ''}`}
+          aria-label={status === 'listening' ? 'Stop listening' : 'Ask the voice assistant'}
+          title="Voice assistant — try 'book the gym at 6pm' or 'sell homemade cake for 200'"
+        >
+          {status === 'listening'
+            ? <Square size={20} fill="currentColor" />
+            : busy
+              ? <Loader2 size={24} className="animate-spin" />
+              : <Mic size={24} />}
+        </button>
+      )}
     </>
   );
 }

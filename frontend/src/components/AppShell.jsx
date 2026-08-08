@@ -150,6 +150,7 @@ export default function AppShell() {
           <button className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-brand-600 dark:border-earth-700 dark:bg-earth-900 lg:hidden" onClick={() => dispatch(setSidebar(true))}><Menu size={20} /></button>
           <div className="hidden text-sm text-earth-700 lg:block"><span className="status-dot mr-2 bg-mint-500" />Community services online</div>
           <div className="ml-auto flex items-center gap-2">
+            <VoiceAssistant variant="button" />
             <button onClick={() => dispatch(toggleDark())} className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">{dark ? <Sun size={19} /> : <Moon size={19} />}</button>
             <NavLink to="/app/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">
               <Bell size={19} />{hasUnreadNotifications && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />}
