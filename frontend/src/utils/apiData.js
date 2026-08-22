@@ -29,4 +29,11 @@ export const unitLabel = (unit) => {
   return [unit.blockName, unit.unitNumber].filter(Boolean).join('-') || '-';
 };
 
-export const uploadUrl = (path) => (path ? `/${String(path).replace(/\\/g, '/').replace(/^\/+/, '')}` : '');
+export const uploadUrl = (path) => {
+  if (!path) return '';
+  const s = String(path);
+  // Cloudinary (and any future CDN) returns a full https:// URL — use it directly.
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  // Legacy local-disk paths: normalise slashes and make absolute.
+  return `/${s.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+};
