@@ -4,11 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import Rating from '@mui/material/Rating';
-import { CheckCircle2, Clock3, IndianRupee, MessageSquare, Plus, Receipt, Users, Wrench } from 'lucide-react';
+import { CheckCircle2, Clock3, HandCoins, IndianRupee, MessageSquare, Plus, Receipt, UserCheck, Users, Wrench } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import StatCard from '../components/StatCard';
 import ImageUploader from '../components/ImageUploader';
+import PaymentModal from '../components/PaymentModal';
 import useApiData from '../hooks/useApiData';
 import api from '../services/api';
 import { showToast } from '../store/uiSlice';
@@ -18,16 +19,21 @@ export default function ComplaintsPage() {
   const role = useSelector((s) => s.auth.user?.role);
   const isResident = role === 'Resident';
   const isStaff = role === 'Staff' || role === 'Admin' || role === 'SuperAdmin';
+  const isWorker = role === 'Staff';
   const [view, setView] = useState('personal'); // 'personal' | 'community' — resident tab
   const endpoint = isResident
     ? (view === 'community' ? '/complaints/community' : '/complaints/my')
     : role === 'Staff' ? '/complaints/assigned/me' : '/complaints';
   const { data, setData } = useApiData(endpoint, []);
+  const { data: staffEarningsData, setData: setStaffEarnings } = useApiData(isWorker ? '/complaints/staff-earnings' : null, null);
   const items = asList(data);
+  const staffSummary = staffEarningsData?.summary || { totalEarned: 0, totalPaidOut: 0, pendingPayout: 0 };
+
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [quoteTarget, setQuoteTarget] = useState(null);
   const [quoteForm, setQuoteForm] = useState({ amount: '', note: '' });
+  const [payQuoteTarget, setPayQuoteTarget] = useState(null);
   const [form, setForm] = useState({ category: 'plumbing', scope: 'personal', description: '' });
   const [images, setImages] = useState([]);
   const [voiceFilled, setVoiceFilled] = useState(false);
@@ -99,19 +105,17 @@ export default function ComplaintsPage() {
     }
   };
 
-  const payQuote = async (item) => {
-    try {
-      const { data: response } = await api.post(`/complaints/${item._id}/quote/pay`, { method: 'upi', reference: `WEB-${Date.now()}` });
-      updateItem(item._id, response.data);
-      dispatch(showToast({ message: 'Payment recorded. Thanks!' }));
-    } catch (err) {
-      dispatch(showToast({ message: err.response?.data?.message || 'Payment could not be recorded', severity: 'error' }));
-    }
+  const handleProcessQuotePayment = async (payload) => {
+    if (!payQuoteTarget) return;
+    const { data: response } = await api.post(`/complaints/${payQuoteTarget._id}/quote/pay`, payload);
+    updateItem(payQuoteTarget._id, response.data);
+    dispatch(showToast({ message: 'Payment recorded successfully. Amount added to worker payout balance.' }));
+    return response.data;
   };
 
   const title = isResident
     ? 'Maintenance requests'
-    : role === 'Staff' ? 'Assigned maintenance tasks' : 'Complaint management';
+    : role === 'Staff' ? 'Assigned maintenance tasks & earnings' : 'Complaint management';
   const eyebrow = isResident ? 'Home & community upkeep' : 'Service operations';
 
   return (
@@ -119,7 +123,7 @@ export default function ComplaintsPage() {
       <PageHeader
         eyebrow={eyebrow}
         title={title}
-        description="Clear ownership, visible progress and a complete resolution history."
+        description="Clear ownership, visible progress, quote payments and payout tracking."
         action={isResident ? (
           <div className="flex gap-2">
             <button onClick={() => openCreate('personal')} className="btn-secondary !px-4"><Plus size={18} /> Personal issue</button>
@@ -127,6 +131,30 @@ export default function ComplaintsPage() {
           </div>
         ) : null}
       />
+
+      {/* Staff Earnings & Payout Balance Banner */}
+      {isWorker && (
+        <div className="mb-7 grid gap-4 sm:grid-cols-3">
+          <StatCard
+            title="Total Earned from Jobs"
+            value={currency(staffSummary.totalEarned)}
+            icon={IndianRupee}
+            color="blue"
+          />
+          <StatCard
+            title="Paid Out by Admin"
+            value={currency(staffSummary.totalPaidOut)}
+            icon={CheckCircle2}
+            color="green"
+          />
+          <StatCard
+            title="To Collect from Admin"
+            value={currency(staffSummary.pendingPayout)}
+            icon={HandCoins}
+            color="orange"
+          />
+        </div>
+      )}
 
       {isResident && (
         <div className="mb-6 flex gap-2">
@@ -189,8 +217,8 @@ export default function ComplaintsPage() {
                       </div>
                     )}
 
-                    {isResident && item.scope === 'personal' && quote?.status === 'accepted' && item.status === 'resolved' && quote.paymentStatus === 'unpaid' && (
-                      <button onClick={() => payQuote(item)} className="btn-primary mt-3 !py-2 text-sm"><IndianRupee size={16} /> Pay {currency(quote.amount)}</button>
+                    {isResident && item.scope === 'personal' && quote?.status === 'accepted' && ['resolved', 'closed'].includes(item.status) && quote.paymentStatus === 'unpaid' && (
+                      <button onClick={() => setPayQuoteTarget(item)} className="btn-primary mt-3 !py-2 text-sm"><IndianRupee size={16} /> Pay {currency(quote.amount)}</button>
                     )}
 
                     {quote?.paymentStatus === 'paid' && (
@@ -311,6 +339,22 @@ export default function ComplaintsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <PaymentModal
+        open={Boolean(payQuoteTarget)}
+        onClose={() => setPayQuoteTarget(null)}
+        title="Pay Maintenance Quote"
+        subtitle={`${payQuoteTarget?.category || 'Maintenance'} service by ${payQuoteTarget?.assignedTo?.name || 'Staff'}`}
+        amount={payQuoteTarget?.quote?.amount || 0}
+        complaintId={payQuoteTarget?._id}
+        invoiceNumber={`MNT-${String(payQuoteTarget?._id).slice(-6)}`}
+        onSuccess={(result) => {
+          if (result?.complaint) {
+            updateItem(payQuoteTarget._id, result.complaint);
+          }
+        }}
+        onProcessPayment={handleProcessQuotePayment}
+      />
     </>
   );
 }

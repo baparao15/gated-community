@@ -106,7 +106,71 @@ export default function BookingsPage(){
 
   return <><PageHeader eyebrow="Community amenities" title={role==='Resident'?'Find your perfect slot':'Facility & booking management'} description="Discover community spaces, choose a time and keep every reservation organized." action={role!=='Resident'?<button onClick={()=>setFacilityOpen(true)} className="btn-primary"><Plus size={18}/> Add facility</button>:null}/>
     <div className="grid gap-5 lg:grid-cols-3">{list.map((f,i)=><article key={f._id} className="card overflow-hidden"><div className={`flex h-40 items-end bg-gradient-to-br ${facilityColors[i%3]} p-5 text-white`}><div><div className="mb-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold capitalize">{f.type}</div><h2 className="font-display text-2xl font-extrabold">{f.name}</h2></div></div><div className="p-5"><p className="min-h-10 text-sm text-slate-500">{f.description}</p><div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1"><UsersRound size={15}/> {f.capacity}</span>{(f.openHours||[]).map((oh,idx)=><span key={idx} className="flex items-center gap-1"><Clock3 size={15}/> {hourLabel(oh.start)}–{hourLabel(oh.end)}</span>)}</div><div className="mt-4 flex flex-wrap gap-2">{f.amenities?.slice(0,3).map(a=><span key={a} className="rounded-full bg-slate-100 px-3 py-1 text-xs dark:bg-slate-800">{a}</span>)}</div>{role==='Resident'&&<button onClick={()=>openBooking(f)} className="btn-primary mt-5 w-full">Book a slot</button>}</div></article>)}</div>
-    <section className="card mt-7 overflow-hidden"><div className="p-5"><h2 className="section-title">{role==='Resident'?'My booking history':'Booking requests'}</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400 dark:bg-slate-900"><tr><th className="px-5 py-3">Facility</th><th>Date & time</th><th>Purpose</th><th>Status</th>{role!=='Resident'&&<th>Action</th>}</tr></thead><tbody>{bookings.map(b=><tr key={b._id} className="border-t border-slate-100 dark:border-slate-800"><td className="px-5 py-4 font-bold">{b.facility?.name||'Community Facility'}</td><td>{new Date(b.slotStart).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</td><td>{b.purpose||'—'}</td><td><StatusBadge value={b.status}/></td>{role!=='Resident'&&<td className="space-x-3">{b.status==='pending'?<><button onClick={()=>approve(b,'approve')} className="font-bold text-emerald-600">Approve</button><button onClick={()=>approve(b,'reject')} className="font-bold text-red-500">Reject</button></>:'—'}</td>}</tr>)}</tbody></table></div></section>
+    <section className="card mt-7 overflow-hidden">
+      <div className="p-5">
+        <h2 className="section-title">{role === 'Resident' ? 'My booking history' : 'Booking requests'}</h2>
+      </div>
+
+      {/* Mobile card list (visible below md) */}
+      <div className="md:hidden divide-y divide-earth-100 dark:divide-earth-800">
+        {bookings.length === 0 && (
+          <div className="px-5 pb-6 text-sm text-earth-500">No bookings yet.</div>
+        )}
+        {bookings.map((b) => (
+          <div key={b._id} className="flex flex-col gap-2 px-5 py-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-bold text-sm">{b.facility?.name || 'Community Facility'}</div>
+              <StatusBadge value={b.status} />
+            </div>
+            <div className="text-xs text-earth-500">
+              {new Date(b.slotStart).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
+            {b.purpose && <div className="text-xs text-earth-500">{b.purpose}</div>}
+            {role !== 'Resident' && b.status === 'pending' && (
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => approve(b, 'approve')} className="text-xs font-bold text-emerald-600">Approve</button>
+                <button onClick={() => approve(b, 'reject')} className="text-xs font-bold text-red-500">Reject</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table (visible md+) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-400 dark:bg-slate-900">
+            <tr>
+              <th className="px-5 py-3">Facility</th>
+              <th>Date &amp; time</th>
+              <th>Purpose</th>
+              <th>Status</th>
+              {role !== 'Resident' && <th>Action</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {bookings.map((b) => (
+              <tr key={b._id} className="border-t border-slate-100 dark:border-slate-800">
+                <td className="px-5 py-4 font-bold">{b.facility?.name || 'Community Facility'}</td>
+                <td>{new Date(b.slotStart).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                <td>{b.purpose || '—'}</td>
+                <td><StatusBadge value={b.status} /></td>
+                {role !== 'Resident' && (
+                  <td className="space-x-3">
+                    {b.status === 'pending' ? (
+                      <>
+                        <button onClick={() => approve(b, 'approve')} className="font-bold text-emerald-600">Approve</button>
+                        <button onClick={() => approve(b, 'reject')} className="font-bold text-red-500">Reject</button>
+                      </>
+                    ) : '—'}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <Dialog open={!!selected} onClose={()=>setSelected(null)} fullWidth maxWidth="sm">
       <DialogContent className="!p-7">

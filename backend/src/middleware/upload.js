@@ -1,13 +1,30 @@
 const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
-const crypto = require('crypto');
 const { sendError } = require('../utils/response');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => {
-    const unique = crypto.randomBytes(8).toString('hex');
-    cb(null, `${unique}-${Date.now()}${path.extname(file.originalname)}`);
+// ── Cloudinary config ──────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// ── Cloudinary storage (images & PDFs) ────────────────────────────────────────
+// Files are uploaded directly to Cloudinary; req.file.path / f.path will be
+// the full HTTPS URL returned by Cloudinary — no local disk writes at all.
+const cloudinaryStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    const isPdf = file.mimetype === 'application/pdf';
+    return {
+      folder: 'smart-community',
+      resource_type: isPdf ? 'raw' : 'image',
+      // Use the original filename (without extension) as the public ID base
+      public_id: `${Date.now()}-${file.originalname.replace(/\.[^.]+$/, '').replace(/\s+/g, '_')}`,
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
+    };
   },
 });
 
@@ -20,12 +37,12 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage,
+  storage: cloudinaryStorage,
   limits: { fileSize: (parseInt(process.env.MAX_FILE_SIZE) || 5) * 1024 * 1024 },
   fileFilter,
 });
 
-// Voice clips are transcribed and discarded, not persisted — kept in memory, not written to /uploads.
+// Voice clips are transcribed and discarded, not persisted — kept in memory.
 const uploadAudio = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },

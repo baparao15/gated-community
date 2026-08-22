@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import {
-  ArrowLeft, Building2, CheckCircle2, MapPin, Palette, Pencil, Plus, ShoppingBag,
-  ShoppingCart, Store, Trash2, UtensilsCrossed,
+  ArrowLeft, Building2, CheckCircle2, MapPin, Package, Palette, Pencil,
+  Plus, Search, ShoppingBag, ShoppingCart, Star, Store, Trash2, UtensilsCrossed, X,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import ImageUploader from '../components/ImageUploader';
@@ -16,25 +16,164 @@ import { showToast } from '../store/uiSlice';
 import { asList, currency, unitLabel, uploadUrl } from '../utils/apiData';
 
 const CATEGORIES = [
-  { value: 'food', label: 'Food', icon: UtensilsCrossed },
-  { value: 'art', label: 'Art', icon: Palette },
+  { value: 'food', label: 'Food & Drinks', icon: UtensilsCrossed, color: 'from-orange-500 to-amber-500' },
+  { value: 'art', label: 'Art & Crafts', icon: Palette, color: 'from-violet-500 to-purple-600' },
 ];
 const catMeta = (value) => CATEGORIES.find((c) => c.value === value) || CATEGORIES[0];
 
 const emptyForm = { business: '', category: 'food', title: '', description: '', price: '' };
 const emptyBusinessForm = { name: '', description: '', apartment: '', contactPhone: '' };
 
+/* ── tab definition ──────────────────────────────────────────────── */
+const TABS = [
+  { value: 'browse', label: 'Browse', icon: Store },
+  { value: 'businesses', label: 'My Businesses', icon: Building2 },
+  { value: 'listings', label: 'My Listings', icon: ShoppingBag },
+  { value: 'orders', label: 'My Orders', icon: ShoppingCart },
+];
+
+/* ── status pill helper ──────────────────────────────────────────── */
+const statusPill = (status) => {
+  const map = {
+    placed: 'bg-amber-100 text-amber-700',
+    confirmed: 'bg-blue-100 text-blue-700',
+    completed: 'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-red-100 text-red-600',
+  };
+  return `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold capitalize ${map[status] || 'bg-slate-100 text-slate-600'}`;
+};
+
+/* ── product image helper ────────────────────────────────────────── */
+const productImage = (product) => (product?.images?.length ? uploadUrl(product.images[0]) : null);
+
+/* ── product card ────────────────────────────────────────────────── */
+function ProductCard({ product, user, onOrder }) {
+  const Meta = catMeta(product.category);
+  const img = productImage(product);
+  const own = product.seller?._id === user?.id || product.seller === user?.id;
+  return (
+    <article className="group overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-earth-700 dark:bg-earth-900">
+      <div className="relative h-44 overflow-hidden bg-earth-100 dark:bg-earth-800">
+        {img ? (
+          <img src={img} alt={product.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+        ) : (
+          <div className={`grid h-full w-full place-items-center bg-gradient-to-br ${Meta.color} opacity-80`}>
+            <Meta.icon size={44} className="text-white drop-shadow" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold capitalize text-earth-800 shadow-sm backdrop-blur-sm">
+          <Meta.icon size={12} /> {product.category}
+        </span>
+        {!product.available && (
+          <span className="absolute right-3 top-3 rounded-full bg-slate-900/80 px-2.5 py-1 text-xs font-bold text-white">Unavailable</span>
+        )}
+      </div>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-display text-base font-bold leading-snug text-ink dark:text-earth-50">{product.title}</h3>
+          <span className="shrink-0 rounded-lg bg-brand-50 px-2.5 py-1 font-display text-base font-extrabold text-brand-600 dark:bg-brand-950/40">
+            {currency(product.price)}
+          </span>
+        </div>
+        {product.description && (
+          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-500">{product.description}</p>
+        )}
+        {product.business && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
+            <Building2 size={12} /> <span className="font-semibold text-slate-500 truncate">{product.business?.name || 'Business'}</span>
+            <span className="mx-0.5">·</span>
+            <MapPin size={12} /> {product.business?.apartment || '-'}
+          </div>
+        )}
+        <button
+          onClick={onOrder}
+          disabled={own || !product.available}
+          className="mt-4 w-full rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white shadow-md shadow-brand-600/20 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {own ? 'Your listing' : !product.available ? 'Unavailable' : <><ShoppingCart size={14} className="inline mr-1.5" />Order now</>}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/* ── store card ──────────────────────────────────────────────────── */
+function StoreCard({ business, onClick }) {
+  return (
+    <article
+      onClick={onClick}
+      className="group cursor-pointer overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-earth-700 dark:bg-earth-900"
+    >
+      {/* cover strip */}
+      <div className="relative h-24 overflow-hidden bg-gradient-to-br from-brand-500/20 to-indigo-500/20 dark:from-brand-900/40 dark:to-indigo-900/40">
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #943D28 1px, transparent 0)', backgroundSize: '18px 18px' }} />
+      </div>
+      {/* logo + info */}
+      <div className="relative px-5 pb-5">
+        <div className="relative -mt-7 mb-3 flex items-end justify-between">
+          <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 border-white bg-earth-100 text-brand-600 shadow-md dark:border-earth-900 dark:bg-earth-800">
+            {business.logo ? (
+              <img src={uploadUrl(business.logo)} alt={business.name} className="h-full w-full object-cover" />
+            ) : (
+              <Building2 size={26} />
+            )}
+          </div>
+          <span className="rounded-full border border-earth-200 bg-white px-3 py-1 text-xs font-bold text-earth-600 shadow-sm dark:border-earth-700 dark:bg-earth-900 dark:text-earth-300">
+            {business.productCount || 0} item{business.productCount === 1 ? '' : 's'}
+          </span>
+        </div>
+        <h3 className="font-display text-base font-bold text-ink dark:text-earth-50">{business.name}</h3>
+        {business.description && (
+          <p className="mt-1 line-clamp-1 text-xs text-slate-500">{business.description}</p>
+        )}
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 text-xs text-slate-400"><MapPin size={11} /> {business.apartment}</span>
+          {business.categories?.map((c) => {
+            const cat = catMeta(c);
+            return (
+              <span key={c} className="inline-flex items-center gap-1 rounded-full bg-earth-100 px-2 py-0.5 text-[10px] font-bold capitalize text-earth-600 dark:bg-earth-800 dark:text-earth-300">
+                <cat.icon size={10} /> {c}
+              </span>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-xs font-bold text-brand-600">
+          <span>View store →</span>
+          <Star size={13} className="text-amber-400" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/* ── empty state ─────────────────────────────────────────────────── */
+function EmptyState({ icon: Icon, title, subtitle, action }) {
+  return (
+    <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-earth-300 bg-earth-50/50 px-6 py-16 text-center dark:border-earth-700 dark:bg-earth-900/30">
+      <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-earth-100 text-earth-400 dark:bg-earth-800">
+        <Icon size={30} />
+      </div>
+      <div className="font-display text-base font-bold text-earth-700 dark:text-earth-200">{title}</div>
+      {subtitle && <p className="mt-1.5 max-w-xs text-sm text-earth-500">{subtitle}</p>}
+      {action}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
 export default function MarketplacePage() {
   const dispatch = useDispatch();
   const user = useSelector((s) => s.auth.user);
 
-  const [tab, setTab] = useState('browse'); // 'browse' | 'businesses' | 'listings' | 'orders'
+  const [tab, setTab] = useState('browse');
   const [catFilter, setCatFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const searchRef = useRef(null);
 
   const [products, setProducts] = useState([]);
   const [browseBusinesses, setBrowseBusinesses] = useState([]);
-  const [activeStore, setActiveStore] = useState(null); // { business, products } when viewing one storefront
+  const [activeStore, setActiveStore] = useState(null);
   const [businesses, setBusinesses] = useState([]);
   const [listings, setListings] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -55,6 +194,7 @@ export default function MarketplacePage() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  /* ── data loaders ────────────────────────────────────────────── */
   const loadBrowse = async () => {
     setLoading(true);
     try {
@@ -70,7 +210,6 @@ export default function MarketplacePage() {
     }
   };
 
-  // The top-level browse screen: every open storefront, like a list of restaurants.
   const loadStores = async () => {
     setLoading(true);
     try {
@@ -97,7 +236,20 @@ export default function MarketplacePage() {
 
   const closeStore = () => setActiveStore(null);
 
-  const updateSearch = (value) => { setActiveStore(null); setSearch(value); };
+  /* Fixed: clearing search correctly resets back to store list */
+  const updateSearch = (value) => {
+    setActiveStore(null);
+    setSearch(value);
+    if (!value.trim()) loadStores();
+  };
+
+  const clearSearch = () => {
+    setSearch('');
+    setActiveStore(null);
+    loadStores();
+    searchRef.current?.focus();
+  };
+
   const updateCatFilter = (value) => { setActiveStore(null); setCatFilter(value); };
 
   const loadBusinesses = async () => {
@@ -133,22 +285,20 @@ export default function MarketplacePage() {
     }
   };
 
-  // My businesses are needed for the "sell a product" flow regardless of which tab is
-  // active, so load them once up front.
   useEffect(() => { loadBusinesses(); }, []);
 
   useEffect(() => {
     if (tab === 'browse') {
       setActiveStore(null);
-      if (search.trim()) loadBrowse(); else loadStores();
+      setSearch('');
+      setCatFilter('all');
+      loadStores();
     } else if (tab === 'businesses') loadBusinesses();
     else if (tab === 'listings') loadListings();
     else loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  // A search term looks up dishes/products by name across every business. With no
-  // search term, the category chips instead filter the storefront list itself.
   useEffect(() => {
     if (tab !== 'browse') return;
     const t = setTimeout(() => {
@@ -162,14 +312,13 @@ export default function MarketplacePage() {
     ? browseBusinesses
     : browseBusinesses.filter((b) => (b.categories || []).includes(catFilter));
 
+  /* ── business form ───────────────────────────────────────────── */
   const fetchApartment = async () => {
     try {
       const { data } = await api.get('/residents/profile');
       const apartment = unitLabel((data.data ?? data)?.unit) || '';
       return apartment === '-' ? '' : apartment;
-    } catch (_) {
-      return '';
-    }
+    } catch (_) { return ''; }
   };
 
   const openCreateBusiness = async () => {
@@ -181,12 +330,7 @@ export default function MarketplacePage() {
   };
 
   const openEditBusiness = (business) => {
-    setBusinessForm({
-      name: business.name,
-      description: business.description || '',
-      apartment: business.apartment,
-      contactPhone: business.contactPhone || '',
-    });
+    setBusinessForm({ name: business.name, description: business.description || '', apartment: business.apartment, contactPhone: business.contactPhone || '' });
     setBusinessLogo([]);
     setEditingBusiness(business);
     setBusinessOpen(true);
@@ -222,6 +366,7 @@ export default function MarketplacePage() {
     }
   };
 
+  /* ── product form ────────────────────────────────────────────── */
   const openCreate = async (overrides = {}) => {
     if (!businesses.length) {
       dispatch(showToast({ message: 'Create a business first, then list products under it.' }));
@@ -234,18 +379,12 @@ export default function MarketplacePage() {
     setCreateOpen(true);
   };
 
-  // Voice assistant deep-link: "sell homemade cake for 200" lands here with the
-  // category/title/price already populated — the seller just adds a photo and publishes.
   useEffect(() => {
     const prefill = location.state?.voicePrefill;
     if (prefill?.type !== 'marketplace') return;
     navigate(location.pathname, { replace: true, state: null });
     (async () => {
-      await openCreate({
-        category: prefill.category || 'food',
-        title: prefill.title || '',
-        price: prefill.price || '',
-      });
+      await openCreate({ category: prefill.category || 'food', title: prefill.title || '', price: prefill.price || '' });
       setVoiceFilled(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,20 +449,7 @@ export default function MarketplacePage() {
     }
   };
 
-  const statusPill = (status) => {
-    const map = {
-      placed: 'bg-amber-100 text-amber-700',
-      confirmed: 'bg-blue-100 text-blue-700',
-      completed: 'bg-emerald-100 text-emerald-700',
-      cancelled: 'bg-red-100 text-red-600',
-    };
-    return `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold capitalize ${map[status] || 'bg-slate-100 text-slate-600'}`;
-  };
-
-  const productImage = (product) => (product.images?.length
-    ? uploadUrl(product.images[0])
-    : null);
-
+  /* ── render ──────────────────────────────────────────────────── */
   return (
     <>
       <PageHeader
@@ -333,85 +459,113 @@ export default function MarketplacePage() {
         action={<button onClick={() => openCreate()} className="btn-primary !px-4"><Plus size={18} /> Sell a product</button>}
       />
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {[['browse', 'Browse', Store], ['businesses', 'My businesses', Building2], ['listings', 'My listings', ShoppingBag], ['orders', 'My orders', ShoppingCart]].map(([value, label, Icon]) => (
-          <button
-            key={value}
-            onClick={() => setTab(value)}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${tab === value ? 'bg-brand-600 text-white' : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-100'}`}
-          >
-            <Icon size={16} /> {label}
-          </button>
-        ))}
-      </div>
+      {/* ── sticky toolbar: tabs + search ───────────────────────── */}
+      <div className="sticky top-16 z-20 -mx-3 mb-6 border-b border-earth-200 bg-white/90 px-3 py-3 backdrop-blur-md dark:border-earth-700 dark:bg-earth-900/90 md:top-20 md:-mx-8 md:px-8">
+        {/* tab row — horizontally scrollable on mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          {TABS.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                tab === value
+                  ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
+                  : 'bg-earth-100 text-earth-700 hover:bg-earth-200 dark:bg-earth-800 dark:text-earth-200 dark:hover:bg-earth-700'
+              }`}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
+        </div>
 
-      {/* ── Browse ─────────────────────────────────────────────── */}
-      {tab === 'browse' && (
-        <>
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex gap-2">
-              <button onClick={() => updateCatFilter('all')} className={`rounded-full px-4 py-2 text-sm font-bold ${catFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-100'}`}>All</button>
+        {/* search + category row — only in browse tab */}
+        {tab === 'browse' && (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            {/* search input */}
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" />
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={(e) => updateSearch(e.target.value)}
+                placeholder="Search for a dish or product…"
+                className="field !pl-9 !pr-9"
+              />
+              {search && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-earth-400 hover:text-earth-700"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+            {/* category pills */}
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={() => updateCatFilter('all')}
+                className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 dark:bg-earth-800 dark:text-earth-200'}`}
+              >
+                All
+              </button>
               {CATEGORIES.map(({ value, label, icon: Icon }) => (
-                <button key={value} onClick={() => updateCatFilter(value)} className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold ${catFilter === value ? 'bg-brand-600 text-white' : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-100'}`}><Icon size={15} /> {label}</button>
+                <button
+                  key={value}
+                  onClick={() => updateCatFilter(value)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === value ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 dark:bg-earth-800 dark:text-earth-200'}`}
+                >
+                  <Icon size={14} /> {label}
+                </button>
               ))}
             </div>
-            <input
-              value={search}
-              onChange={(e) => updateSearch(e.target.value)}
-              placeholder="Search for a dish or product…"
-              className="field sm:ml-auto sm:max-w-xs"
-            />
           </div>
+        )}
+      </div>
 
+      {/* ── Browse ───────────────────────────────────────────────── */}
+      {tab === 'browse' && (
+        <>
           {activeStore ? (
             <>
-              <button onClick={closeStore} className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-600"><ArrowLeft size={16} /> Back to marketplace</button>
-              <div className="card mb-6 flex items-center gap-4 p-5">
-                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-earth-100 text-brand-600 dark:bg-earth-800">
-                  {activeStore.business.logo ? <img src={uploadUrl(activeStore.business.logo)} alt={activeStore.business.name} className="h-full w-full object-cover" /> : <Building2 size={28} />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-xl font-extrabold">{activeStore.business.name}</h2>
-                  {activeStore.business.description && <p className="mt-1 text-sm text-slate-500">{activeStore.business.description}</p>}
-                  <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400"><MapPin size={12} /> Apartment {activeStore.business.apartment}</div>
+              <button onClick={closeStore} className="mb-5 inline-flex items-center gap-1.5 rounded-xl border border-earth-200 bg-white px-4 py-2 text-sm font-bold text-brand-600 shadow-sm hover:bg-brand-50 dark:border-earth-700 dark:bg-earth-900">
+                <ArrowLeft size={16} /> Back to marketplace
+              </button>
+              {/* store hero */}
+              <div className="mb-6 overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm dark:border-earth-700 dark:bg-earth-900">
+                <div className="h-28 bg-gradient-to-br from-brand-500/20 to-indigo-500/20 dark:from-brand-900/40 dark:to-indigo-900/40" />
+                <div className="relative px-6 pb-6">
+                  <div className="relative -mt-8 flex items-end gap-4">
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border-4 border-white bg-earth-100 text-brand-600 shadow-md dark:border-earth-900 dark:bg-earth-800">
+                      {activeStore.business.logo ? (
+                        <img src={uploadUrl(activeStore.business.logo)} alt={activeStore.business.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Building2 size={28} />
+                      )}
+                    </div>
+                    <div className="min-w-0 pb-1">
+                      <h2 className="font-display text-xl font-extrabold">{activeStore.business.name}</h2>
+                      {activeStore.business.description && <p className="text-sm text-slate-500">{activeStore.business.description}</p>}
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400"><MapPin size={12} /> Apartment {activeStore.business.apartment}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {loading ? (
                 <div className="card p-10 text-center text-sm text-slate-500">Loading listings…</div>
               ) : !activeStore.products.length ? (
-                <div className="card p-10 text-center text-sm text-slate-500">This business hasn't listed any products yet.</div>
+                <EmptyState icon={Package} title="No products yet" subtitle="This business hasn't listed any products yet." />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {activeStore.products.map((product) => {
-                    const Meta = catMeta(product.category);
-                    const img = productImage(product);
                     const ownStore = activeStore.business.owner?._id === user?.id || activeStore.business.owner === user?.id;
                     return (
-                      <article key={product._id} className="card overflow-hidden">
-                        <div className="relative h-40 bg-earth-100 dark:bg-earth-800">
-                          {img ? (
-                            <img src={img} alt={product.title} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center text-earth-300"><Meta.icon size={40} /></div>
-                          )}
-                          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold capitalize text-earth-700 shadow"><Meta.icon size={13} /> {product.category}</span>
-                        </div>
-                        <div className="p-5">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-display text-lg font-bold">{product.title}</h3>
-                            <span className="shrink-0 font-display text-lg font-extrabold text-brand-600">{currency(product.price)}</span>
-                          </div>
-                          {product.description && <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{product.description}</p>}
-                          <button
-                            onClick={() => { setOrderTarget({ ...product, business: activeStore.business }); setOrderForm({ quantity: 1, note: '' }); }}
-                            disabled={ownStore}
-                            className="btn-primary mt-4 w-full !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <ShoppingCart size={16} /> {ownStore ? 'Your listing' : 'Order now'}
-                          </button>
-                        </div>
-                      </article>
+                      <ProductCard
+                        key={product._id}
+                        product={product}
+                        user={ownStore ? { id: product.seller } : user}
+                        onOrder={() => { setOrderTarget({ ...product, business: activeStore.business }); setOrderForm({ quantity: 1, note: '' }); }}
+                      />
                     );
                   })}
                 </div>
@@ -421,79 +575,33 @@ export default function MarketplacePage() {
             loading ? (
               <div className="card p-10 text-center text-sm text-slate-500">Searching marketplace…</div>
             ) : !products.length ? (
-              <div className="card p-10 text-center text-sm text-slate-500">No products match your search.</div>
+              <EmptyState icon={Search} title="No results found" subtitle={`Nothing matched "${search}". Try a different word.`} />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((product) => {
-                  const Meta = catMeta(product.category);
-                  const img = productImage(product);
-                  const own = product.seller?._id === user?.id || product.seller === user?.id;
-                  return (
-                    <article key={product._id} className="card overflow-hidden">
-                      <div className="relative h-40 bg-earth-100 dark:bg-earth-800">
-                        {img ? (
-                          <img src={img} alt={product.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="grid h-full w-full place-items-center text-earth-300"><Meta.icon size={40} /></div>
-                        )}
-                        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold capitalize text-earth-700 shadow"><Meta.icon size={13} /> {product.category}</span>
-                      </div>
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-display text-lg font-bold">{product.title}</h3>
-                          <span className="shrink-0 font-display text-lg font-extrabold text-brand-600">{currency(product.price)}</span>
-                        </div>
-                        {product.description && <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{product.description}</p>}
-                        <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
-                          <Building2 size={13} /> <span className="truncate font-semibold text-slate-500">{product.business?.name || 'Business'}</span>
-                          <span className="mx-1">•</span>
-                          <MapPin size={13} /> {product.business?.apartment || '-'}
-                        </div>
-                        <button
-                          onClick={() => { setOrderTarget(product); setOrderForm({ quantity: 1, note: '' }); }}
-                          disabled={own}
-                          className="btn-primary mt-4 w-full !py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <ShoppingCart size={16} /> {own ? 'Your listing' : 'Order now'}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
+                {products.map((product) => (
+                  <ProductCard
+                    key={product._id}
+                    product={product}
+                    user={user}
+                    onOrder={() => { setOrderTarget(product); setOrderForm({ quantity: 1, note: '' }); }}
+                  />
+                ))}
               </div>
             )
           ) : (
             loading ? (
               <div className="card p-10 text-center text-sm text-slate-500">Loading businesses…</div>
             ) : !visibleBrowseBusinesses.length ? (
-              <div className="card p-10 text-center text-sm text-slate-500">No businesses have opened a storefront yet. Be the first to sell something!</div>
+              <EmptyState
+                icon={Store}
+                title="No storefronts yet"
+                subtitle="Be the first to open a business and sell to your community!"
+                action={<button onClick={openCreateBusiness} className="btn-primary mt-5 !px-5"><Plus size={16} /> Open a business</button>}
+              />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleBrowseBusinesses.map((business) => (
-                  <article
-                    key={business._id}
-                    onClick={() => openStore(business._id)}
-                    className="card cursor-pointer overflow-hidden transition hover:shadow-lg"
-                  >
-                    <div className="flex items-center gap-4 p-5">
-                      <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-earth-100 text-brand-600 dark:bg-earth-800">
-                        {business.logo ? <img src={uploadUrl(business.logo)} alt={business.name} className="h-full w-full object-cover" /> : <Building2 size={24} />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-display text-lg font-bold">{business.name}</h3>
-                        {business.description && <p className="mt-1 line-clamp-1 text-sm text-slate-500">{business.description}</p>}
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-                          <MapPin size={12} /> {business.apartment}
-                          {!!business.categories?.length && business.categories.map((c) => (
-                            <span key={c} className="inline-flex items-center gap-1 rounded-full bg-earth-100 px-2 py-0.5 font-bold capitalize text-earth-600 dark:bg-earth-800 dark:text-earth-200">{c}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="border-t border-earth-100 px-5 py-3 text-xs font-bold text-brand-600 dark:border-earth-800">
-                      {business.productCount || 0} item{business.productCount === 1 ? '' : 's'} available →
-                    </div>
-                  </article>
+                  <StoreCard key={business._id} business={business} onClick={() => openStore(business._id)} />
                 ))}
               </div>
             )
@@ -501,14 +609,19 @@ export default function MarketplacePage() {
         </>
       )}
 
-      {/* ── My businesses ──────────────────────────────────────── */}
+      {/* ── My businesses ─────────────────────────────────────────── */}
       {tab === 'businesses' && (
         <>
-          <div className="mb-4 flex justify-end">
+          <div className="mb-5 flex justify-end">
             <button onClick={openCreateBusiness} className="btn-secondary !px-4 text-sm"><Plus size={16} /> New business</button>
           </div>
           {!businesses.length ? (
-            <div className="card p-10 text-center text-sm text-slate-500">You haven't created a business yet. Open one to start selling under your own name.</div>
+            <EmptyState
+              icon={Building2}
+              title="No businesses yet"
+              subtitle="Open your own storefront and start selling to your neighbours."
+              action={<button onClick={openCreateBusiness} className="btn-primary mt-5 !px-5"><Plus size={16} /> Open a business</button>}
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {businesses.map((business) => (
@@ -526,7 +639,7 @@ export default function MarketplacePage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button onClick={() => openCreate({ business: business._id })} className="btn-primary !px-3 !py-2 text-sm"><Plus size={15} /> Add product</button>
                     <button onClick={() => openEditBusiness(business)} className="btn-secondary !px-3 !py-2 text-sm"><Pencil size={15} /> Edit</button>
-                    <button onClick={() => removeBusiness(business)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600"><Trash2 size={15} /></button>
+                    <button onClick={() => removeBusiness(business)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50"><Trash2 size={15} /></button>
                   </div>
                 </article>
               ))}
@@ -535,12 +648,12 @@ export default function MarketplacePage() {
         </>
       )}
 
-      {/* ── My listings ────────────────────────────────────────── */}
+      {/* ── My listings ───────────────────────────────────────────── */}
       {tab === 'listings' && (
         loading ? (
           <div className="card p-10 text-center text-sm text-slate-500">Loading your listings…</div>
         ) : !listings.length ? (
-          <div className="card p-10 text-center text-sm text-slate-500">You haven't listed anything yet. Tap “Sell a product” to get started.</div>
+          <EmptyState icon={ShoppingBag} title="No listings yet" subtitle='Tap "Sell a product" to get started.' action={<button onClick={() => openCreate()} className="btn-primary mt-5 !px-5"><Plus size={16} /> Sell a product</button>} />
         ) : (
           <div className="grid gap-4">
             {listings.map((product) => {
@@ -565,10 +678,9 @@ export default function MarketplacePage() {
                     </div>
                     <div className="flex shrink-0 flex-wrap items-start gap-2">
                       <button onClick={() => toggleAvailable(product)} className="btn-secondary !px-4 !py-2 text-sm">{product.available ? 'Hide' : 'Show'}</button>
-                      <button onClick={() => removeListing(product)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600"><Trash2 size={16} /></button>
+                      <button onClick={() => removeListing(product)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50"><Trash2 size={16} /></button>
                     </div>
                   </div>
-
                   {!!activeOrders.length && (
                     <div className="mt-4 space-y-2 border-t border-earth-200 pt-4 dark:border-earth-700">
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Orders received</div>
@@ -576,7 +688,7 @@ export default function MarketplacePage() {
                         <div key={order._id} className="flex flex-wrap items-center gap-2 rounded-xl bg-earth-50 px-3 py-2 text-sm dark:bg-earth-800/50">
                           <span className="font-bold">{order.buyer?.name || 'Resident'}</span>
                           <span className="text-slate-500">× {order.quantity}</span>
-                          {order.note && <span className="text-xs text-slate-400">“{order.note}”</span>}
+                          {order.note && <span className="text-xs text-slate-400">"{order.note}"</span>}
                           <span className={statusPill(order.status)}>{order.status}</span>
                           <div className="ml-auto flex gap-1.5">
                             {order.status === 'placed' && <button onClick={() => setOrderState(product, order, 'confirmed')} className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-bold text-white">Confirm</button>}
@@ -594,12 +706,12 @@ export default function MarketplacePage() {
         )
       )}
 
-      {/* ── My orders ──────────────────────────────────────────── */}
+      {/* ── My orders ─────────────────────────────────────────────── */}
       {tab === 'orders' && (
         loading ? (
           <div className="card p-10 text-center text-sm text-slate-500">Loading your orders…</div>
         ) : !orders.length ? (
-          <div className="card p-10 text-center text-sm text-slate-500">You haven't ordered anything yet. Browse the marketplace to find something you like.</div>
+          <EmptyState icon={ShoppingCart} title="No orders yet" subtitle="Browse the marketplace to find something you like." action={<button onClick={() => setTab('browse')} className="btn-primary mt-5 !px-5"><Store size={16} /> Browse marketplace</button>} />
         ) : (
           <div className="grid gap-3">
             {orders.map((order) => {
@@ -615,7 +727,7 @@ export default function MarketplacePage() {
                       <span className={statusPill(order.status)}>{order.status}</span>
                     </div>
                     <div className="mt-0.5 text-xs text-slate-400">
-                      Qty {order.quantity} • {currency((order.product?.price || 0) * order.quantity)} • from {order.product?.business?.name || 'Business'} (Apt {order.product?.business?.apartment || '-'})
+                      Qty {order.quantity} · {currency((order.product?.price || 0) * order.quantity)} · from {order.product?.business?.name || 'Business'} (Apt {order.product?.business?.apartment || '-'})
                     </div>
                   </div>
                 </article>
@@ -625,30 +737,18 @@ export default function MarketplacePage() {
         )
       )}
 
-      {/* ── Create / edit business dialog ──────────────────────── */}
+      {/* ── Create / edit business dialog ─────────────────────────── */}
       <Dialog open={businessOpen} onClose={() => setBusinessOpen(false)} fullWidth maxWidth="sm">
         <DialogContent className="!p-7">
           <div className="eyebrow">{editingBusiness ? 'Edit business' : 'New business'}</div>
           <h2 className="mt-2 font-display text-2xl font-extrabold">{editingBusiness ? editingBusiness.name : 'Open your storefront'}</h2>
           <p className="mt-1 text-sm text-slate-500">Give your business a name — every product you list will appear under it.</p>
           <form onSubmit={submitBusiness} className="mt-6 space-y-4">
-            <label>
-              <span className="mb-2 block text-sm font-bold">Business name</span>
-              <input className="field" required maxLength={120} value={businessForm.name} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} placeholder="e.g. Priya's Bakes" />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Description (optional)</span>
-              <textarea className="field" rows="2" value={businessForm.description} onChange={(e) => setBusinessForm({ ...businessForm, description: e.target.value })} placeholder="What do you sell?" />
-            </label>
+            <label><span className="mb-2 block text-sm font-bold">Business name</span><input className="field" required maxLength={120} value={businessForm.name} onChange={(e) => setBusinessForm({ ...businessForm, name: e.target.value })} placeholder="e.g. Priya's Bakes" /></label>
+            <label><span className="mb-2 block text-sm font-bold">Description (optional)</span><textarea className="field" rows="2" value={businessForm.description} onChange={(e) => setBusinessForm({ ...businessForm, description: e.target.value })} placeholder="What do you sell?" /></label>
             <div className="grid grid-cols-2 gap-3">
-              <label>
-                <span className="mb-2 block text-sm font-bold">Apartment no.</span>
-                <input className="field" required value={businessForm.apartment} onChange={(e) => setBusinessForm({ ...businessForm, apartment: e.target.value })} placeholder="e.g. A-1203" />
-              </label>
-              <label>
-                <span className="mb-2 block text-sm font-bold">Contact phone (optional)</span>
-                <input className="field" value={businessForm.contactPhone} onChange={(e) => setBusinessForm({ ...businessForm, contactPhone: e.target.value })} placeholder="Buyers may call you" />
-              </label>
+              <label><span className="mb-2 block text-sm font-bold">Apartment no.</span><input className="field" required value={businessForm.apartment} onChange={(e) => setBusinessForm({ ...businessForm, apartment: e.target.value })} placeholder="e.g. A-1203" /></label>
+              <label><span className="mb-2 block text-sm font-bold">Contact phone (optional)</span><input className="field" value={businessForm.contactPhone} onChange={(e) => setBusinessForm({ ...businessForm, contactPhone: e.target.value })} placeholder="Buyers may call you" /></label>
             </div>
             <ImageUploader images={businessLogo} setImages={(files) => setBusinessLogo(files.slice(-1))} hint="Optional business logo." />
             <button className="btn-primary w-full"><Building2 size={16} /> {editingBusiness ? 'Save changes' : 'Create business'}</button>
@@ -656,69 +756,59 @@ export default function MarketplacePage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Create listing dialog ──────────────────────────────── */}
+      {/* ── Create listing dialog ──────────────────────────────────── */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
         <DialogContent className="!p-7">
           <div className="eyebrow">List a product</div>
           <h2 className="mt-2 font-display text-2xl font-extrabold">Sell to your community</h2>
           <form onSubmit={create} className="mt-6 space-y-4">
             {businesses.length > 1 && (
-              <label>
-                <span className="mb-2 block text-sm font-bold">Business</span>
+              <label><span className="mb-2 block text-sm font-bold">Business</span>
                 <select className="field" required value={form.business} onChange={(e) => setForm({ ...form, business: e.target.value })}>
                   {businesses.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
                 </select>
               </label>
             )}
             <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map(({ value, label, icon: Icon }) => (
-                <button key={value} type="button" onClick={() => setForm({ ...form, category: value })} className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition ${form.category === value ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-earth-300 text-earth-500'}`}><Icon size={17} /> {label}</button>
+              {CATEGORIES.map(({ value, label, icon: Icon, color }) => (
+                <button key={value} type="button" onClick={() => setForm({ ...form, category: value })}
+                  className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition ${form.category === value ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-earth-300 text-earth-500 hover:border-earth-400'}`}>
+                  <Icon size={17} /> {label}
+                </button>
               ))}
             </div>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Product name</span>
-              <input className="field" required maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={form.category === 'food' ? 'e.g. Homemade veg biryani' : 'e.g. Hand-painted canvas'} />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Description</span>
-              <textarea className="field" rows="3" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ingredients, size, quantity available, etc." />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Price (₹)</span>
-              <input className="field" type="number" min="0" step="1" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="e.g. 250" />
-            </label>
-            <ImageUploader
-              images={images}
-              setImages={setImages}
-              highlight={voiceFilled}
-              hint="A bright, clear photo helps your product sell faster."
-            />
+            <label><span className="mb-2 block text-sm font-bold">Product name</span><input className="field" required maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={form.category === 'food' ? 'e.g. Homemade veg biryani' : 'e.g. Hand-painted canvas'} /></label>
+            <label><span className="mb-2 block text-sm font-bold">Description</span><textarea className="field" rows="3" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ingredients, size, quantity available, etc." /></label>
+            <label><span className="mb-2 block text-sm font-bold">Price (₹)</span><input className="field" type="number" min="0" step="1" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="e.g. 250" /></label>
+            <ImageUploader images={images} setImages={setImages} highlight={voiceFilled} hint="A bright, clear photo helps your product sell faster." />
             <button className="btn-primary w-full"><Store size={16} /> List product</button>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* ── Order dialog ───────────────────────────────────────── */}
+      {/* ── Order dialog ───────────────────────────────────────────── */}
       <Dialog open={!!orderTarget} onClose={() => setOrderTarget(null)} fullWidth maxWidth="xs">
-        <DialogContent className="!p-7">
-          <div className="eyebrow">Place an order</div>
-          <h2 className="mt-2 font-display text-2xl font-extrabold">{orderTarget?.title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{currency(orderTarget?.price || 0)} • {orderTarget?.business?.name} • Apartment {orderTarget?.business?.apartment}</p>
-          <form onSubmit={submitOrder} className="mt-6 space-y-4">
-            <label>
-              <span className="mb-2 block text-sm font-bold">Quantity</span>
-              <input className="field" type="number" min="1" max="99" required value={orderForm.quantity} onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })} />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Note to seller (optional)</span>
-              <textarea className="field" rows="3" value={orderForm.note} onChange={(e) => setOrderForm({ ...orderForm, note: e.target.value })} placeholder="Pickup time, preferences, etc." />
-            </label>
-            <div className="flex items-center justify-between rounded-xl bg-earth-50 px-4 py-3 text-sm font-bold dark:bg-earth-800/50">
-              <span>Total</span>
-              <span className="text-brand-600">{currency((orderTarget?.price || 0) * (Number(orderForm.quantity) || 1))}</span>
+        <DialogContent className="!p-0 overflow-hidden">
+          {/* product image at top */}
+          {productImage(orderTarget) && (
+            <div className="h-40 w-full overflow-hidden">
+              <img src={productImage(orderTarget)} alt={orderTarget?.title} className="h-full w-full object-cover" />
             </div>
-            <button className="btn-primary w-full"><CheckCircle2 size={16} /> Confirm order</button>
-          </form>
+          )}
+          <div className="p-7">
+            <div className="eyebrow">Place an order</div>
+            <h2 className="mt-2 font-display text-2xl font-extrabold">{orderTarget?.title}</h2>
+            <p className="mt-1 text-sm text-slate-500">{currency(orderTarget?.price || 0)} · {orderTarget?.business?.name} · Apt {orderTarget?.business?.apartment}</p>
+            <form onSubmit={submitOrder} className="mt-6 space-y-4">
+              <label><span className="mb-2 block text-sm font-bold">Quantity</span><input className="field" type="number" min="1" max="99" required value={orderForm.quantity} onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })} /></label>
+              <label><span className="mb-2 block text-sm font-bold">Note to seller (optional)</span><textarea className="field" rows="3" value={orderForm.note} onChange={(e) => setOrderForm({ ...orderForm, note: e.target.value })} placeholder="Pickup time, preferences, etc." /></label>
+              <div className="flex items-center justify-between rounded-xl bg-earth-50 px-4 py-3 text-sm font-bold dark:bg-earth-800/50">
+                <span>Total</span>
+                <span className="text-brand-600">{currency((orderTarget?.price || 0) * (Number(orderForm.quantity) || 1))}</span>
+              </div>
+              <button className="btn-primary w-full"><CheckCircle2 size={16} /> Confirm order</button>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
     </>

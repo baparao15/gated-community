@@ -4,11 +4,12 @@
 
 :root { color: #1c1c19; background: #fdf9f4; font-synthesis: none; }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; height: 100%; }
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh; /* covers mobile browser chrome shrink */
   font-family: 'Be Vietnam Pro', sans-serif;
   background-color: #fdf9f4;
   background-image: radial-gradient(circle at 2px 2px, rgba(148, 61, 40, 0.055) 1px, transparent 0);
@@ -36,6 +37,8 @@ button, input, textarea, select { font: inherit; }
 .page-title { @apply font-display text-[2rem] font-extrabold leading-tight tracking-tight text-ink dark:text-earth-50 md:text-4xl; }
 .section-title { @apply font-display text-xl font-bold text-ink dark:text-earth-50; }
 .field { @apply w-full rounded-xl border-2 border-earth-300 bg-white/95 px-4 py-3 text-sm text-earth-900 outline-none transition placeholder:text-earth-500 focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-50 dark:focus:ring-brand-950; }
+/* Search inputs: same as .field but with left padding reserved for the icon */
+.search-input { @apply field; padding-left: 2.375rem !important; }
 .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 font-bold text-white shadow-lg shadow-brand-600/20 transition hover:-translate-y-0.5 hover:bg-brand-700; }
 .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-earth-300 bg-white/95 px-5 py-3 font-bold text-earth-700 transition hover:border-brand-300 hover:text-brand-600 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-100; }
 .voice-fab { @apply absolute left-1/2 top-0 z-40 grid h-14 w-14 -translate-x-1/2 -translate-y-[56%] place-items-center rounded-full bg-gradient-to-br from-brand-500 via-rose-500 to-indigo-600 text-white shadow-lg shadow-brand-600/30 ring-4 ring-white transition hover:-translate-y-[62%] active:scale-95 dark:ring-earth-900; }

@@ -81,9 +81,6 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
 }
 
-// ── Static files (uploads) ─────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ success: true, message: 'Server is healthy', timestamp: new Date() }));
 

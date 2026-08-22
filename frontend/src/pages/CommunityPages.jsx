@@ -52,7 +52,7 @@ export function VehiclesPage() {
     />
     <div className="relative mb-5 max-w-md">
       <Search className="absolute left-3 top-3 text-slate-400" size={17} />
-      <input value={query} onChange={(event) => setQuery(event.target.value)} className="field pl-10" placeholder="Search vehicle, owner, unit" />
+      <input value={query} onChange={(event) => setQuery(event.target.value)} className="search-input" placeholder="Search vehicle, owner, unit" />
     </div>
     <div className="grid gap-5 md:grid-cols-2">
       {visible.map((vehicle) => <article key={vehicle._id} className="card p-6">

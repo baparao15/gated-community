@@ -48,6 +48,9 @@ const complaintSchema = new mongoose.Schema(
       paymentMethod: { type: String },
       paymentReference: { type: String },
       paidAt: { type: Date },
+      workerPayoutStatus: { type: String, enum: ['pending', 'paid_out'], default: 'pending' },
+      workerPaidAt: { type: Date },
+      workerPaidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     },
     internalComments: [commentSchema],
     statusHistory: [

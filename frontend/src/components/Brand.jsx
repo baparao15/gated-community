@@ -3,8 +3,8 @@ import panchayatMark from '../assets/brand/panchayat-mark.png';
 export default function Brand({ compact = false, light = false }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl bg-brand-50 shadow-lg shadow-brand-600/10 ring-1 ring-brand-100">
-        <img src={panchayatMark} alt="Panchayat" className="h-full w-full object-cover" />
+      <div className={`grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl shadow-lg ring-1 ${light ? 'bg-white/15 ring-white/20 shadow-white/10' : 'bg-brand-50 shadow-brand-600/10 ring-brand-100'}`}>
+        <img src={panchayatMark} alt="Panchayat" className="h-8 w-8 object-contain" />
       </div>
       {!compact && (
         <div>

@@ -248,39 +248,137 @@ const respondToQuote = async (req, res) => {
   return sendSuccess(res, `Quote ${complaint.quote.status}`, complaint);
 };
 
-// Resident pays for an accepted quote once the work is actually done (status === 'resolved').
+// Resident pays for an accepted quote once the work is actually done (status === 'resolved'),
+// or Admin marks it paid if resident paid in cash at the management desk.
 const payQuote = async (req, res) => {
-  const { method, reference } = req.body;
+  const { method = 'upi', reference } = req.body;
+  const isStaffAdmin = ['Admin', 'SuperAdmin'].includes(req.user.role);
 
-  const complaint = await Complaint.findOne({ _id: req.params.id, raisedBy: req.user._id });
+  const query = isStaffAdmin ? { _id: req.params.id } : { _id: req.params.id, raisedBy: req.user._id };
+  const complaint = await Complaint.findOne(query).populate('assignedTo', 'name email').populate('raisedBy', 'name');
   if (!complaint) return sendError(res, 'Complaint not found', null, 404);
   if (complaint.quote?.status !== 'accepted') return sendError(res, 'This request has no accepted quote', null, 400);
-  if (complaint.status !== 'resolved') return sendError(res, 'Payment is due once the work is marked resolved', null, 400);
+  if (!['resolved', 'closed'].includes(complaint.status)) return sendError(res, 'Payment is due once the work is marked resolved', null, 400);
   if (complaint.quote.paymentStatus === 'paid') return sendError(res, 'This quote has already been paid', null, 400);
 
   complaint.quote.paymentStatus = 'paid';
   complaint.quote.paymentMethod = method;
-  complaint.quote.paymentReference = reference;
+  complaint.quote.paymentReference = reference || `PAY-${Date.now()}`;
   complaint.quote.paidAt = new Date();
+  complaint.quote.workerPayoutStatus = 'pending';
   await complaint.save();
 
+  const workerId = complaint.assignedTo?._id || complaint.quote.quotedBy;
   try {
-    if (complaint.quote.quotedBy) {
-      emitToUser(complaint.quote.quotedBy.toString(), 'payment_received', {
-        message: `Payment of ₹${complaint.quote.amount} received for a completed maintenance job`,
+    if (workerId) {
+      emitToUser(workerId.toString(), 'payment_received', {
+        message: `Payment of ₹${complaint.quote.amount} received by Admin for completed maintenance job. Added to your payout balance!`,
         complaintId: complaint._id,
       });
       await Notification.create({
-        recipient: complaint.quote.quotedBy,
+        recipient: workerId,
         type: 'payment_received',
-        title: 'Payment received',
-        message: `Payment of ₹${complaint.quote.amount} received for a completed maintenance job`,
+        title: 'Earnings Balance Updated',
+        message: `Payment of ₹${complaint.quote.amount} collected by Admin for maintenance #${complaint._id.toString().slice(-6)}. Balance available for payout.`,
         relatedEntity: { model: 'Complaint', id: complaint._id },
       });
     }
   } catch (_) {}
 
-  return sendSuccess(res, 'Payment recorded', complaint);
+  return sendSuccess(res, 'Payment recorded successfully', complaint);
+};
+
+// Staff view: Get earnings balance and list of quoted maintenance jobs
+const getStaffEarnings = async (req, res) => {
+  const staffId = req.user._id;
+  const jobs = await Complaint.find({
+    assignedTo: staffId,
+    'quote.paymentStatus': 'paid',
+  }).populate('raisedBy', 'name').populate('unit', 'blockName unitNumber').sort({ 'quote.paidAt': -1 });
+
+  let totalEarned = 0;
+  let totalPaidOut = 0;
+  let pendingPayout = 0;
+
+  jobs.forEach((j) => {
+    const amt = j.quote?.amount || 0;
+    totalEarned += amt;
+    if (j.quote?.workerPayoutStatus === 'paid_out') {
+      totalPaidOut += amt;
+    } else {
+      pendingPayout += amt;
+    }
+  });
+
+  return sendSuccess(res, 'Staff earnings fetched', {
+    summary: { totalEarned, totalPaidOut, pendingPayout },
+    jobs,
+  });
+};
+
+// Admin view: Get list of all worker payouts and summary per worker
+const listWorkerPayouts = async (req, res) => {
+  const jobs = await Complaint.find({
+    'quote.paymentStatus': 'paid',
+  })
+    .populate('assignedTo', 'name email phone')
+    .populate('raisedBy', 'name phone')
+    .populate('unit', 'blockName unitNumber')
+    .populate('quote.workerPaidBy', 'name')
+    .sort({ 'quote.paidAt': -1 });
+
+  let totalCollectedByAdmin = 0;
+  let totalSettledToWorkers = 0;
+  let totalPendingToWorkers = 0;
+
+  jobs.forEach((j) => {
+    const amt = j.quote?.amount || 0;
+    totalCollectedByAdmin += amt;
+    if (j.quote?.workerPayoutStatus === 'paid_out') {
+      totalSettledToWorkers += amt;
+    } else {
+      totalPendingToWorkers += amt;
+    }
+  });
+
+  return sendSuccess(res, 'Worker payouts fetched', {
+    summary: { totalCollectedByAdmin, totalSettledToWorkers, totalPendingToWorkers },
+    jobs,
+  });
+};
+
+// Admin: Settle cash or bank transfer payout to worker
+const settleWorkerPayout = async (req, res) => {
+  const complaint = await Complaint.findById(req.params.id).populate('assignedTo', 'name email');
+  if (!complaint) return sendError(res, 'Complaint not found', null, 404);
+  if (complaint.quote?.paymentStatus !== 'paid') {
+    return sendError(res, 'Cannot settle payout: resident has not paid yet', null, 400);
+  }
+  if (complaint.quote?.workerPayoutStatus === 'paid_out') {
+    return sendError(res, 'Worker payout already settled', null, 400);
+  }
+
+  complaint.quote.workerPayoutStatus = 'paid_out';
+  complaint.quote.workerPaidAt = new Date();
+  complaint.quote.workerPaidBy = req.user._id;
+  await complaint.save();
+
+  try {
+    if (complaint.assignedTo?._id) {
+      emitToUser(complaint.assignedTo._id.toString(), 'payout:settled', {
+        message: `Admin settled payout of ₹${complaint.quote.amount} in cash/transfer for job #${complaint._id.toString().slice(-6)}`,
+      });
+      await Notification.create({
+        recipient: complaint.assignedTo._id,
+        type: 'payment_received',
+        title: 'Payout Settled',
+        message: `Admin has paid/settled ₹${complaint.quote.amount} for maintenance job #${complaint._id.toString().slice(-6)}`,
+        relatedEntity: { model: 'Complaint', id: complaint._id },
+      });
+    }
+  } catch (_) {}
+
+  return sendSuccess(res, 'Worker payout settled', complaint);
 };
 
 const submitFeedback = async (req, res) => {
@@ -319,5 +417,6 @@ const getAssignedToMe = async (req, res) => {
 module.exports = {
   createComplaint, getMyComplaints, getCommunityComplaints, listComplaints, getComplaintById,
   assignComplaint, updateComplaintStatus, updatePriority, submitQuote, respondToQuote, payQuote,
+  getStaffEarnings, listWorkerPayouts, settleWorkerPayout,
   submitFeedback, getAssignedToMe,
 };

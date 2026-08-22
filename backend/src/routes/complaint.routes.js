@@ -20,6 +20,8 @@ router.post(
 router.get('/my', protect, authorize('Resident'), ctrl.getMyComplaints);
 router.get('/community', protect, ctrl.getCommunityComplaints);
 router.get('/assigned/me', protect, authorize('Staff', 'Admin', 'SuperAdmin'), ctrl.getAssignedToMe);
+router.get('/staff-earnings', protect, authorize('Staff', 'Admin', 'SuperAdmin'), ctrl.getStaffEarnings);
+router.get('/worker-payouts', protect, authorize('Admin', 'SuperAdmin'), ctrl.listWorkerPayouts);
 router.get('/', protect, authorize('Admin', 'SuperAdmin', 'Staff'), ctrl.listComplaints);
 router.get('/:id', protect, ctrl.getComplaintById);
 router.patch('/:id/assign', protect, authorize('Admin', 'SuperAdmin'), validate(assignSchema), ctrl.assignComplaint);
@@ -27,7 +29,8 @@ router.patch('/:id/status', protect, authorize('Staff', 'Admin', 'SuperAdmin'), 
 router.patch('/:id/priority', protect, authorize('Admin', 'SuperAdmin'), validate(prioritySchema), ctrl.updatePriority);
 router.post('/:id/quote', protect, authorize('Staff', 'Admin', 'SuperAdmin'), validate(quoteSchema), ctrl.submitQuote);
 router.patch('/:id/quote/respond', protect, authorize('Resident'), validate(quoteResponseSchema), ctrl.respondToQuote);
-router.post('/:id/quote/pay', protect, authorize('Resident'), validate(quotePaymentSchema), ctrl.payQuote);
+router.post('/:id/quote/pay', protect, authorize('Resident', 'Admin', 'SuperAdmin'), validate(quotePaymentSchema), ctrl.payQuote);
+router.post('/:id/quote/payout', protect, authorize('Admin', 'SuperAdmin'), ctrl.settleWorkerPayout);
 router.post('/:id/feedback', protect, authorize('Resident'), validate(feedbackSchema), ctrl.submitFeedback);
 
 module.exports = router;

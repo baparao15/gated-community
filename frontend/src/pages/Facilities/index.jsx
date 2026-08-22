@@ -28,7 +28,7 @@ export default function FacilitiesPage() {
       </section>
       <div className="relative mb-7 max-w-xl">
         <Search className="absolute left-4 top-3.5 text-brand-600" size={19} />
-        <input className="field pl-12" placeholder="Search healthcare, clubhouse, transport..." />
+        <input className="search-input" style={{paddingLeft: '3rem'}} placeholder="Search healthcare, clubhouse, transport..." />
       </div>
       <section className="mb-7">
         <div className="mb-4 flex items-center justify-between">

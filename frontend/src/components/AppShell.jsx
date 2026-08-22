@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  Bell, BookOpen, Building, CalendarDays, Car, CircleDollarSign, ClipboardList, Home,
+  BarChart3, Bell, BookOpen, Building, CalendarDays, Car, CircleDollarSign, ClipboardList, Home,
   LogOut, Menu, MessageSquareText, Moon, ShieldCheck, Siren, Store, Sun, UserRound, UsersRound, Wrench, X,
 } from 'lucide-react';
 import Snackbar from '@mui/material/Snackbar';
@@ -28,19 +28,16 @@ const resident = [
   { to: '/app/vehicles', label: 'Vehicles', icon: Car },
   { to: '/app/forum', label: 'Community Forum', icon: MessageSquareText },
   { to: '/app/profile', label: 'My Profile', icon: UserRound },
-  { to: '/app/settings', label: 'Settings', icon: Wrench },
 ];
 const admin = [
   { to: '/app/residents', label: 'Residents', icon: Building },
   { to: '/app/units', label: 'Units', icon: Home },
   { to: '/app/complaints', label: 'Maintenance', icon: ClipboardList },
   { to: '/app/visitors', label: 'Visitors', icon: UsersRound },
-  { to: '/app/facilities', label: 'Facilities', icon: CalendarDays },
   { to: '/app/bookings', label: 'Bookings', icon: CalendarDays },
   { to: '/app/payments', label: 'Revenue', icon: CircleDollarSign },
   { to: '/app/notices', label: 'Announcements', icon: BookOpen },
-  { to: '/app/reports', label: 'Reports', icon: Wrench },
-  { to: '/app/settings', label: 'Settings', icon: Wrench },
+  { to: '/app/reports', label: 'Reports', icon: BarChart3 },
 ];
 const guard = [
   { to: '/app/visitors', label: 'Visitor Gate', icon: ShieldCheck },
@@ -77,13 +74,13 @@ const mobileByRole = {
     ['/app/dashboard', Home, 'Home'],
     ['/app/residents', Building, 'People'],
     ['/app/complaints', ClipboardList, 'Maintenance'],
-    ['/app/reports', Wrench, 'Reports'],
+    ['/app/reports', BarChart3, 'Reports'],
   ],
   SuperAdmin: [
     ['/app/dashboard', Home, 'Home'],
     ['/app/residents', Building, 'People'],
     ['/app/complaints', ClipboardList, 'Maintenance'],
-    ['/app/reports', Wrench, 'Reports'],
+    ['/app/reports', BarChart3, 'Reports'],
   ],
 };
 
@@ -109,8 +106,9 @@ export default function AppShell() {
   }, [reloadUnread]);
 
   const leave = () => { dispatch(logout()); navigate('/'); };
-  const roleLabel = { Guard: 'Gate desk', Staff: 'Service team', Resident: 'Resident', Admin: 'Admin', SuperAdmin: 'Admin' }[user?.role];
-  const verificationLabel = user?.role === 'Resident' ? 'Verified Resident' : 'Verified Account';
+  const roleLabel = { Guard: 'Gate desk', Staff: 'Service team', Resident: 'Resident', Admin: 'Admin', SuperAdmin: 'Super Admin' }[user?.role];
+  const verificationLabel = user?.role === 'Resident' ? 'Verified Resident' : user?.role === 'SuperAdmin' ? 'Super Admin' : 'Verified Account';
+  const isSuperAdmin = user?.role === 'SuperAdmin';
   const mobileItems = mobileByRole[user?.role] || mobileByRole.Resident;
   const initials = user?.name?.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase();
 
@@ -123,13 +121,13 @@ export default function AppShell() {
         </div>
         <div className="mt-8 shrink-0 rounded-2xl bg-white/80 p-4 text-earth-900 shadow-card ring-1 ring-earth-300/70 dark:bg-earth-800 dark:text-earth-50">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 font-display font-bold text-brand-600 ring-2 ring-white">{user?.name?.split(' ').map((x) => x[0]).slice(0,2).join('')}</div>
+            <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full font-display font-bold ring-2 ring-white ${isSuperAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-brand-100 text-brand-600'}`}>{initials || '?'}</div>
             <div className="min-w-0">
-              <div className="truncate font-bold">{user?.name}</div>
+              <div className="font-bold leading-tight" title={user?.name}>{user?.name}</div>
               <div className="text-xs text-earth-500">{roleLabel} workspace</div>
             </div>
           </div>
-          <div className="mt-4 inline-flex items-center gap-1 rounded-full bg-mint-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-mint-600">
+          <div className={`mt-4 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${isSuperAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-mint-100 text-mint-600'}`}>
             <ShieldCheck size={14} /> {verificationLabel}
           </div>
         </div>
@@ -150,7 +148,10 @@ export default function AppShell() {
           <button className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-brand-600 dark:border-earth-700 dark:bg-earth-900 lg:hidden" onClick={() => dispatch(setSidebar(true))}><Menu size={20} /></button>
           <div className="hidden text-sm text-earth-700 lg:block"><span className="status-dot mr-2 bg-mint-500" />Community services online</div>
           <div className="ml-auto flex items-center gap-2">
-            <VoiceAssistant variant="button" />
+            {/* mic only on desktop — on mobile it lives in the bottom nav FAB */}
+            <span className="hidden lg:flex">
+              <VoiceAssistant variant="button" />
+            </span>
             <button onClick={() => dispatch(toggleDark())} className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">{dark ? <Sun size={19} /> : <Moon size={19} />}</button>
             <NavLink to="/app/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">
               <Bell size={19} />{hasUnreadNotifications && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />}
@@ -166,11 +167,11 @@ export default function AppShell() {
             </NavLink>
           </div>
         </header>
-        <main className="mx-auto max-w-[1600px] px-3 py-4 pb-32 md:p-8 lg:pb-8"><Outlet /></main>
+        <main className="w-full px-3 py-4 pb-32 md:p-8 lg:pb-8"><Outlet /></main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
-        <div className="relative mx-3 mb-3">
+        <div className="relative mx-3 mb-3 pb-safe">
           {/* white cradle that bumps up around the floating mic */}
           <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-0 h-16 w-[4.75rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-earth-900" />
           <div className="relative flex items-stretch rounded-[1.9rem] bg-white px-1.5 shadow-[0_14px_38px_-10px_rgba(76,29,20,0.32)] dark:bg-earth-900">

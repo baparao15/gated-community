@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -11,9 +11,17 @@ import api from '../services/api';
 
 function AuthFrame({ children, title, subtitle, wide = false }) {
   return (
-    <div className="grid min-h-screen bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
+    <div className="grid min-h-screen min-h-dvh bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
       <div className="relative hidden overflow-hidden bg-earth-900 p-12 text-white lg:flex lg:flex-col">
-        <img src={panchayatMark} alt="" aria-hidden="true" className="pointer-events-none absolute right-[-3rem] top-1/2 h-96 w-96 -translate-y-[60%] rounded-full opacity-[0.07] blur-[1px]" />
+        {/* Full decorative logo — circular, left half colorful, right half dim */}
+        <div className="pointer-events-none absolute right-[-2rem] top-1/2 h-[380px] w-[380px] -translate-y-1/2 overflow-hidden rounded-full">
+          {/* Base: full image at low opacity (right half shows faintly) */}
+          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.18]" />
+          {/* Left half overlay: same image with brand warm color filter */}
+          <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 52% 0, 52% 100%, 0 100%)' }}>
+            <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.55]" style={{ filter: 'sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)' }} />
+          </div>
+        </div>
         <div className="absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl" />
         <Brand light />
         <div className="relative my-auto max-w-xl">
@@ -58,20 +66,45 @@ const DEMO_PASSWORD = 'Test@1234';
 export function LoginPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading, error } = useSelector((s) => s.auth);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
+  const [pendingBanner, setPendingBanner] = useState('');
+
+  // Reactively read the pending message from navigation state.
+  // Using useEffect + location means this fires every time the user navigates
+  // to /login — even if they were already on the page (no remount needed).
+  useEffect(() => {
+    if (location.state?.pendingMsg) {
+      setPendingBanner(location.state.pendingMsg);
+      // Clear the state so refreshing doesn't re-show the banner
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state?.pendingMsg]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const submit = async (e) => {
     e.preventDefault();
+    setPendingBanner(''); // Clear Google-sourced banner on a fresh submit attempt
     const result = await dispatch(login(form));
     if (result.meta.requestStatus === 'fulfilled') navigate('/app/dashboard');
   };
   const fillDemo = (email) => setForm({ email, password: DEMO_PASSWORD });
+  const isPending = error && error.toLowerCase().includes('pending');
+  const showPendingBanner = pendingBanner || isPending;
+  const pendingMsg = pendingBanner || 'Your account is awaiting admin approval. You will be notified once it is activated. Please check back later.';
+
   return <AuthFrame title="Welcome back" subtitle="Sign in to your community workspace.">
     <form className="mt-8 space-y-5" onSubmit={submit}>
       <label className="block"><span className="mb-2 block text-sm font-bold">Email address</span><input className="field" type="email" required placeholder="you@example.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
       <label className="block"><div className="mb-2 flex justify-between"><span className="text-sm font-bold">Password</span><Link to="/forgot-password" className="text-sm font-bold text-brand-600">Forgot password?</Link></div><div className="relative"><input className="field pr-12" type={show?'text':'password'} required placeholder="••••••••" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)} className="absolute right-4 top-3.5 text-earth-500">{show?<EyeOff size={19}/>:<Eye size={19}/>}</button></div></label>
-      {error && <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error} New here? <Link to="/register" className="underline">Register</Link> instead.</div>}
+      {showPendingBanner && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+          <div className="font-bold text-amber-800">Account under review</div>
+          <div className="mt-1 text-amber-700">{pendingMsg}</div>
+        </div>
+      )}
+      {error && !isPending && <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error} New here? <Link to="/register" className="underline">Register</Link> instead.</div>}
       <label className="flex items-center gap-2 text-sm text-earth-500"><input type="checkbox" defaultChecked className="accent-brand-600"/> Remember me on this device</label>
       <button className="btn-primary w-full" disabled={loading}>{loading?<CircularProgress size={20} color="inherit"/>:<><LockKeyhole size={18}/> Sign in securely</>}</button>
     </form>
@@ -93,11 +126,33 @@ export function LoginPage() {
 export function RegisterPage() {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [countdown, setCountdown] = useState(null);
   const [form,setForm]=useState({name:'',email:'',phone:'',unitNumber:'',password:'',confirm:''});
-  const submit=async(e)=>{e.preventDefault(); if(form.password!==form.confirm){setMessage('Passwords do not match.');return;} try{await api.post('/auth/register',{name:form.name,email:form.email,phone:form.phone,password:form.password,...(form.unitNumber&&{unitNumber:form.unitNumber})});setMessage('Registration submitted. An admin will approve your account.');setTimeout(()=>navigate('/login'),1800);}catch(err){setMessage(err.response?.data?.message || 'Registration failed. Please try again.');}};
+
+  const submit=async(e)=>{
+    e.preventDefault();
+    if(form.password!==form.confirm){setIsSuccess(false);setMessage('Passwords do not match.');return;}
+    try{
+      await api.post('/auth/register',{name:form.name,email:form.email,phone:form.phone,password:form.password,...(form.unitNumber&&{unitNumber:form.unitNumber})});
+      setIsSuccess(true);
+      setMessage('Registration submitted! An admin will approve your account.');
+      let secs = 3;
+      setCountdown(secs);
+      const iv = setInterval(()=>{secs--; if(secs<=0){clearInterval(iv);navigate('/login');}else setCountdown(secs);},1000);
+    }catch(err){
+      setIsSuccess(false);
+      setMessage(err.response?.data?.message || 'Registration failed. Please try again.');
+    }
+  };
+
   return <AuthFrame wide title="Join your community" subtitle="Create your resident account. Admin approval may be required."><form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
     {[['Full name','name','text'],['Email','email','email'],['Phone','phone','tel'],['Apartment number','unitNumber','text'],['Password','password','password'],['Confirm password','confirm','password']].map(([label,key,type])=><label key={key} className="block"><span className="mb-2 block text-sm font-bold">{label}</span><input className="field" type={type} required={!['phone','unitNumber'].includes(key)} placeholder={key==='unitNumber'?'A1289':''} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}
-    {message&&<div className="sm:col-span-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-brand-700">{message}</div>}<button className="btn-primary sm:col-span-2" type="submit">Create resident account</button></form>
+    {message&&<div className={`sm:col-span-2 flex items-start gap-3 rounded-xl p-4 text-sm font-semibold ${isSuccess ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+      <span className="text-lg leading-none">{isSuccess ? '✓' : '✗'}</span>
+      <span>{message}{isSuccess && countdown !== null && <span className="ml-2 opacity-70">Redirecting in {countdown}s…</span>}</span>
+    </div>}
+    <button className="btn-primary sm:col-span-2" type="submit" disabled={isSuccess}>Create resident account</button></form>
     <div className="my-6 flex items-center gap-3 text-xs font-bold uppercase tracking-wide text-earth-400"><span className="h-px flex-1 bg-earth-200" />or<span className="h-px flex-1 bg-earth-200" /></div>
     <GoogleButton />
     <p className="mt-7 text-center text-sm text-earth-500">Already registered? <Link to="/login" className="font-bold text-brand-600">Sign in</Link></p></AuthFrame>;
