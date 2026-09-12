@@ -11,27 +11,33 @@ import api from '../services/api';
 
 function AuthFrame({ children, title, subtitle, wide = false }) {
   return (
-    <div className="grid min-h-screen min-h-dvh bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
+    <div className="relative grid min-h-screen min-h-dvh bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
+      {/* Left dark panel */}
       <div className="relative hidden overflow-hidden bg-earth-900 p-12 text-white lg:flex lg:flex-col">
-        {/* Full decorative logo — circular, left half colorful, right half dim */}
-        <div className="pointer-events-none absolute right-[-2rem] top-1/2 h-[380px] w-[380px] -translate-y-1/2 overflow-hidden rounded-full">
-          {/* Base: full image at low opacity (right half shows faintly) */}
-          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.18]" />
-          {/* Left half overlay: same image with brand warm color filter */}
-          <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 52% 0, 52% 100%, 0 100%)' }}>
-            <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.55]" style={{ filter: 'sepia(1) saturate(3.5) hue-rotate(-15deg) brightness(1.15)' }} />
-          </div>
-        </div>
         <div className="absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl" />
         <Brand light />
         <div className="relative my-auto max-w-xl">
           <div className="mb-5 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-amber-100">A calmer way to run your community</div>
-          <h1 className="font-display text-5xl font-extrabold leading-tight">Everything your community needs. Nothing it doesn’t.</h1>
+          <h1 className="font-display text-5xl font-extrabold leading-tight">Everything your community needs. Nothing it doesn't.</h1>
           <p className="mt-5 text-lg leading-8 text-earth-300">Secure access, helpful updates, transparent services and simpler everyday living.</p>
           <div className="mt-10 grid grid-cols-2 gap-3">{[['Secure visitor passes','QR + OTP verification'],['Live service tracking','From request to resolution'],['Easy digital payments','Receipts always available'],['Community updates','Never miss what matters']].map(([a,b])=><div key={a} className="rounded-2xl border border-white/10 bg-white/5 p-4"><ShieldCheck className="mb-3 text-mint-100" size={20}/><div className="font-bold">{a}</div><div className="mt-1 text-xs text-earth-300">{b}</div></div>)}</div>
         </div>
         <div className="relative text-xs text-earth-500">Trusted community operations · Built for privacy</div>
       </div>
+
+      {/* Logo sitting at the panel boundary */}
+      <div className="pointer-events-none absolute hidden lg:block left-[52.5%] top-1/2 z-10 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden">
+        {/* Left half — lighter/faded on the dark panel */}
+        <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' }}>
+          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.30]" style={{ filter: 'brightness(1.5)' }} />
+        </div>
+        {/* Right half — full vivid natural image on the white panel */}
+        <div className="absolute inset-0" style={{ clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)' }}>
+          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain" />
+        </div>
+      </div>
+
+      {/* Right light panel */}
       <div className="flex items-center justify-center p-4 sm:p-10">
         <div className={`w-full ${wide ? 'max-w-xl' : 'max-w-md'}`}>
           <Link to="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-earth-500 hover:text-brand-600 sm:mb-8"><ArrowLeft size={17}/> Back home</Link>
@@ -53,6 +59,7 @@ function AuthFrame({ children, title, subtitle, wide = false }) {
     </div>
   );
 }
+
 
 const DEMO_ACCOUNTS = [
   { role: 'Super Admin', email: 'superadmin@gc.com' },
