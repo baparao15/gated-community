@@ -18,6 +18,7 @@ const shared = [
   { to: '/app/dashboard', label: 'Dashboard', icon: Home },
   { to: '/app/marketplace', label: 'Marketplace', icon: Store },
   { to: '/app/notifications', label: 'Notifications', icon: Bell },
+  { to: '/app/chat', label: 'Community Chat', icon: MessageSquareText },
 ];
 const resident = [
   { to: '/app/visitors', label: 'Visitors', icon: UsersRound },
@@ -27,6 +28,7 @@ const resident = [
   { to: '/app/notices', label: 'Notices', icon: BookOpen },
   { to: '/app/vehicles', label: 'Vehicles', icon: Car },
   { to: '/app/forum', label: 'Community Forum', icon: MessageSquareText },
+  { to: '/app/emergency', label: 'SOS & Emergency', icon: Siren },
   { to: '/app/profile', label: 'My Profile', icon: UserRound },
 ];
 const admin = [
@@ -38,6 +40,7 @@ const admin = [
   { to: '/app/payments', label: 'Revenue', icon: CircleDollarSign },
   { to: '/app/notices', label: 'Announcements', icon: BookOpen },
   { to: '/app/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/app/emergency', label: 'Emergency & SOS', icon: Siren },
 ];
 const guard = [
   { to: '/app/visitors', label: 'Visitor Gate', icon: ShieldCheck },
@@ -138,22 +141,27 @@ export default function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <button onClick={leave} className="mt-4 shrink-0 flex items-center justify-center gap-3 rounded-xl bg-earth-200 px-4 py-4 text-sm font-bold text-brand-700 hover:bg-brand-100 dark:bg-earth-800 dark:text-brand-100"><LogOut size={19} /> Logout</button>
+        <button onClick={leave} className="mt-4 shrink-0 flex items-center justify-center gap-3 rounded-xl bg-earth-200 px-4 py-4 text-sm font-bold text-brand-700 hover:bg-brand-100 dark:bg-earth-800 dark:text-brand-100 dark:hover:bg-earth-700 transition"><LogOut size={19} /> Logout</button>
       </aside>
 
       {sidebarOpen && <button aria-label="Close menu" onClick={() => dispatch(setSidebar(false))} className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden" />}
 
-      <div className="lg:pl-72">
+      <div className="lg:pl-72 min-w-0 max-w-full">
         <header className="glass sticky top-0 z-30 flex h-16 items-center justify-between border-b border-earth-300/60 px-3 dark:border-earth-700 md:h-20 md:px-8">
-          <button className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-brand-600 dark:border-earth-700 dark:bg-earth-900 lg:hidden" onClick={() => dispatch(setSidebar(true))}><Menu size={20} /></button>
-          <div className="hidden text-sm text-earth-700 lg:block"><span className="status-dot mr-2 bg-mint-500" />Community services online</div>
+          <div className="flex items-center gap-2.5">
+            <button className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-brand-600 transition active:scale-95 dark:border-earth-700 dark:bg-earth-900 dark:text-brand-300 lg:hidden" onClick={() => dispatch(setSidebar(true))} aria-label="Open navigation"><Menu size={20} /></button>
+            <div className="lg:hidden">
+              <Brand size="sm" />
+            </div>
+            <div className="hidden text-sm text-earth-700 dark:text-earth-300 lg:block"><span className="status-dot mr-2 bg-mint-500" />Community services online</div>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             {/* mic only on desktop — on mobile it lives in the bottom nav FAB */}
             <span className="hidden lg:flex">
               <VoiceAssistant variant="button" />
             </span>
-            <button onClick={() => dispatch(toggleDark())} className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">{dark ? <Sun size={19} /> : <Moon size={19} />}</button>
-            <NavLink to="/app/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900">
+            <button onClick={() => dispatch(toggleDark())} className="grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-200">{dark ? <Sun size={19} /> : <Moon size={19} />}</button>
+            <NavLink to="/app/notifications" className="relative grid h-10 w-10 place-items-center rounded-xl border border-earth-300 bg-white text-earth-700 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-200">
               <Bell size={19} />{hasUnreadNotifications && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />}
             </NavLink>
             <div className="ml-1 hidden text-right sm:block"><div className="text-sm font-bold text-earth-900 dark:text-earth-50">{user?.name}</div><div className="text-xs text-earth-500">{roleLabel}</div></div>
@@ -167,7 +175,7 @@ export default function AppShell() {
             </NavLink>
           </div>
         </header>
-        <main className="w-full px-3 py-4 pb-32 md:p-8 lg:pb-8"><Outlet /></main>
+        <main className="w-full min-w-0 max-w-full overflow-x-hidden px-3 py-4 pb-32 md:p-8 lg:pb-8"><Outlet /></main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
@@ -202,7 +210,16 @@ export default function AppShell() {
           <VoiceAssistant />
         </div>
       </nav>
-      {user?.role === 'Resident' && <button onClick={() => dispatch(showToast({ message: 'SOS activated. Security desk has been notified.', severity: 'error' }))} className="fixed bottom-40 right-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-red-700 text-white shadow-xl shadow-red-700/30 md:bottom-28 md:right-5 md:h-12 md:w-12"><Siren size={20} /></button>}
+      {user?.role === 'Resident' && (
+        <NavLink
+          to="/app/emergency"
+          title="SOS Emergency"
+          aria-label="SOS Emergency"
+          className="fixed bottom-36 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl shadow-red-600/40 transition active:scale-90 hover:bg-red-700 md:bottom-28 md:right-5"
+        >
+          <Siren size={22} className="animate-pulse" />
+        </NavLink>
+      )}
       <Snackbar open={!!toast} autoHideDuration={3500} onClose={() => dispatch(clearToast())}><Alert variant="filled" severity={toast?.severity || 'success'}>{toast?.message}</Alert></Snackbar>
     </div>
   );

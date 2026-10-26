@@ -15,5 +15,11 @@ router.get('/security/dashboard', protect, authorize('Guard', 'Admin', 'SuperAdm
 // Emergency contacts
 router.get('/emergency-contacts', protect, ctrl.listEmergencyContacts);
 router.post('/emergency-contacts', protect, authorize('Admin', 'SuperAdmin'), ctrl.addEmergencyContact);
+router.delete('/emergency-contacts/:id', protect, authorize('Admin', 'SuperAdmin'), ctrl.deleteEmergencyContact);
+
+// SOS
+router.post('/sos', protect, authorize('Resident'), ctrl.triggerSos);
+router.get('/sos', protect, authorize('Resident', 'Guard', 'Admin', 'SuperAdmin'), ctrl.listSosAlerts);
+router.patch('/sos/:id/resolve', protect, authorize('Guard', 'Admin', 'SuperAdmin'), ctrl.resolveSos);
 
 module.exports = router;

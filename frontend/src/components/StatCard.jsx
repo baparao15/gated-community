@@ -9,7 +9,7 @@ export default function StatCard({ title, value, icon: Icon, color = 'blue', hin
     red: 'bg-red-100 text-red-700 dark:bg-red-950',
   };
   return (
-    <div className="card card-pattern p-5">
+    <div className="card p-5">
       <div className="flex items-start justify-between">
         <div className={`grid h-11 w-11 place-items-center rounded-2xl ${colors[color]}`}><Icon size={21} /></div>
         {trend && <span className="flex items-center gap-1 text-xs font-bold text-emerald-600"><ArrowUpRight size={14} />{trend}</span>}

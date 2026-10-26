@@ -24,6 +24,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const voiceRoutes = require('./routes/voice.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
 const businessRoutes = require('./routes/business.routes');
+const chatRoutes = require('./routes/chat.routes');
 
 const app = express();
 
@@ -98,6 +99,7 @@ app.use(API, dashboardRoutes);
 app.use(API, voiceRoutes);
 app.use(`${API}/marketplace`, marketplaceRoutes);
 app.use(`${API}/business`, businessRoutes);
+app.use(API, chatRoutes);
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => {

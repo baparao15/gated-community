@@ -4,43 +4,54 @@
 
 :root { color: #1c1c19; background: #fdf9f4; font-synthesis: none; }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; height: 100%; }
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0;
+  width: 100%;
+  max-width: 100vw;
   min-width: 320px;
   min-height: 100vh;
   min-height: 100dvh; /* covers mobile browser chrome shrink */
+  overflow-x: hidden;
   font-family: 'Be Vietnam Pro', sans-serif;
   background-color: #fdf9f4;
   background-image: radial-gradient(circle at 2px 2px, rgba(148, 61, 40, 0.055) 1px, transparent 0);
   background-size: 24px 24px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Prevent iOS / Android from automatically zooming in when focusing form inputs */
+input, select, textarea {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  input:not([class*="text-"]), select:not([class*="text-"]), textarea:not([class*="text-"]) {
+    font-size: 0.875rem;
+  }
+}
+
 button, input, textarea, select { font: inherit; }
 .dark body { background-color: #161512; color: #f4f0eb; }
 .glass { background: rgba(253,249,244,.86); backdrop-filter: blur(18px); }
 .dark .glass { background: rgba(28,28,25,.9); }
 .card { @apply rounded-2xl border border-earth-300/70 bg-white/95 shadow-card dark:border-earth-700/60 dark:bg-earth-900; }
 .card-pattern { @apply relative overflow-hidden; }
-.card-pattern::after {
-  content: '';
-  position: absolute;
-  right: -18px;
-  top: -18px;
-  width: 92px;
-  height: 92px;
-  opacity: .055;
-  background: #943d28;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 56%, 79% 91%, 50% 70%, 21% 91%, 32% 56%, 2% 35%, 39% 35%);
-  pointer-events: none;
-}
 .eyebrow { @apply text-xs font-extrabold uppercase tracking-[0.18em] text-brand-600; }
-.page-title { @apply font-display text-[2rem] font-extrabold leading-tight tracking-tight text-ink dark:text-earth-50 md:text-4xl; }
-.section-title { @apply font-display text-xl font-bold text-ink dark:text-earth-50; }
-.field { @apply w-full rounded-xl border-2 border-earth-300 bg-white/95 px-4 py-3 text-sm text-earth-900 outline-none transition placeholder:text-earth-500 focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-50 dark:focus:ring-brand-950; }
+.page-title { @apply font-display text-2xl font-extrabold leading-tight tracking-tight text-ink sm:text-3xl dark:text-earth-50 md:text-4xl; }
+.section-title { @apply font-display text-lg sm:text-xl font-bold text-ink dark:text-earth-50; }
+.field { @apply w-full rounded-xl border-2 border-earth-300 bg-white/95 px-4 py-3 text-base sm:text-sm text-earth-900 outline-none transition placeholder:text-earth-500 focus:border-brand-600 focus:ring-4 focus:ring-brand-100 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-50 dark:focus:ring-brand-950; }
 /* Search inputs: same as .field but with left padding reserved for the icon */
 .search-input { @apply field; padding-left: 2.375rem !important; }
-.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 font-bold text-white shadow-lg shadow-brand-600/20 transition hover:-translate-y-0.5 hover:bg-brand-700; }
-.btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-earth-300 bg-white/95 px-5 py-3 font-bold text-earth-700 transition hover:border-brand-300 hover:text-brand-600 dark:border-earth-700 dark:bg-earth-900 dark:text-earth-100; }
+.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 sm:px-5 sm:py-3 text-sm sm:text-base font-bold text-white shadow-lg shadow-brand-600/20 transition hover:-translate-y-0.5 hover:bg-brand-700 active:scale-[.98]; }
+.btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-earth-300 bg-white/95 px-4 py-2.5 sm:px-5 sm:py-3 text-sm sm:text-base font-bold text-earth-700 transition hover:border-brand-300 hover:text-brand-600 active:scale-[.98] dark:border-earth-700 dark:bg-earth-900 dark:text-earth-100; }
+.dark .btn-secondary:hover { border-color: #B3543D; color: #FFB4A3; background-color: #2a2a26; }
 .voice-fab { @apply absolute left-1/2 top-0 z-40 grid h-14 w-14 -translate-x-1/2 -translate-y-[56%] place-items-center rounded-full bg-gradient-to-br from-brand-500 via-rose-500 to-indigo-600 text-white shadow-lg shadow-brand-600/30 ring-4 ring-white transition hover:-translate-y-[62%] active:scale-95 dark:ring-earth-900; }
 .voice-fab-active { @apply from-red-500 via-red-600 to-rose-700 shadow-red-500/40 animate-pulse; }
 .voice-bubble { @apply fixed bottom-32 left-1/2 z-50 max-w-[86vw] -translate-x-1/2 rounded-2xl bg-earth-900 px-4 py-2.5 text-center text-sm font-semibold leading-snug text-canvas shadow-xl sm:max-w-sm; }

@@ -11,22 +11,22 @@ import api from '../services/api';
 
 function AuthFrame({ children, title, subtitle, wide = false }) {
   return (
-    <div className="relative grid min-h-screen min-h-dvh bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
+    <div className="relative grid min-h-screen min-h-dvh overflow-x-hidden bg-earth-50 lg:grid-cols-[1.05fr_.95fr]">
       {/* Left dark panel */}
-      <div className="relative hidden overflow-hidden bg-earth-900 p-12 text-white lg:flex lg:flex-col">
+      <div className="relative hidden overflow-hidden bg-earth-900 p-8 xl:p-12 text-white lg:flex lg:flex-col">
         <div className="absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl" />
-        <Brand light />
-        <div className="relative my-auto max-w-xl">
+        <Brand light size="default" />
+        <div className="relative my-auto max-w-xl py-6">
           <div className="mb-5 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-amber-100">A calmer way to run your community</div>
-          <h1 className="font-display text-5xl font-extrabold leading-tight">Everything your community needs. Nothing it doesn't.</h1>
-          <p className="mt-5 text-lg leading-8 text-earth-300">Secure access, helpful updates, transparent services and simpler everyday living.</p>
-          <div className="mt-10 grid grid-cols-2 gap-3">{[['Secure visitor passes','QR + OTP verification'],['Live service tracking','From request to resolution'],['Easy digital payments','Receipts always available'],['Community updates','Never miss what matters']].map(([a,b])=><div key={a} className="rounded-2xl border border-white/10 bg-white/5 p-4"><ShieldCheck className="mb-3 text-mint-100" size={20}/><div className="font-bold">{a}</div><div className="mt-1 text-xs text-earth-300">{b}</div></div>)}</div>
+          <h1 className="font-display text-4xl xl:text-5xl font-extrabold leading-tight">Everything your community needs. Nothing it doesn't.</h1>
+          <p className="mt-5 text-base xl:text-lg leading-7 xl:leading-8 text-earth-300">Secure access, helpful updates, transparent services and simpler everyday living.</p>
+          <div className="mt-8 grid grid-cols-2 gap-3">{[['Secure visitor passes','QR + OTP verification'],['Live service tracking','From request to resolution'],['Easy digital payments','Receipts always available'],['Community updates','Never miss what matters']].map(([a,b])=><div key={a} className="rounded-2xl border border-white/10 bg-white/5 p-3.5 xl:p-4"><ShieldCheck className="mb-2.5 text-mint-100" size={19}/><div className="font-bold text-sm xl:text-base">{a}</div><div className="mt-1 text-xs text-earth-300">{b}</div></div>)}</div>
         </div>
         <div className="relative text-xs text-earth-500">Trusted community operations · Built for privacy</div>
       </div>
 
-      {/* Logo sitting at the panel boundary */}
-      <div className="pointer-events-none absolute hidden lg:block left-[52.5%] top-1/2 z-10 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden">
+      {/* Logo sitting at the panel boundary - only on large/extra large viewports to prevent covering inputs on small laptops */}
+      <div className="pointer-events-none absolute hidden xl:block left-[52.5%] top-1/2 z-10 h-[240px] w-[240px] 2xl:h-[340px] 2xl:w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden">
         {/* Left half — lighter/faded on the dark panel */}
         <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' }}>
           <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.30]" style={{ filter: 'brightness(1.5)' }} />
@@ -38,14 +38,14 @@ function AuthFrame({ children, title, subtitle, wide = false }) {
       </div>
 
       {/* Right light panel */}
-      <div className="flex items-center justify-center p-4 sm:p-10">
+      <div className="flex items-center justify-center p-4 sm:p-8 xl:p-10">
         <div className={`w-full ${wide ? 'max-w-xl' : 'max-w-md'}`}>
-          <Link to="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-earth-500 hover:text-brand-600 sm:mb-8"><ArrowLeft size={17}/> Back home</Link>
+          <Link to="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-earth-500 hover:text-brand-600 sm:mb-6"><ArrowLeft size={17}/> Back home</Link>
           <div className="relative mb-5 overflow-hidden rounded-2xl bg-earth-900 p-5 text-white lg:hidden">
             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand-600/25 blur-2xl" />
             <div className="relative flex items-center justify-between gap-3">
-              <Brand light />
-              <span className="inline-flex items-center gap-1 rounded-full bg-mint-100/15 px-3 py-1 text-xs font-bold text-mint-100"><ShieldCheck size={13} /> Secure</span>
+              <Brand light size="default" />
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-mint-100/15 px-3 py-1 text-xs font-bold text-mint-100"><ShieldCheck size={13} /> Secure</span>
             </div>
             <p className="relative mt-3 text-sm text-earth-300">A calmer way to run your community — safe, simple and connected.</p>
           </div>

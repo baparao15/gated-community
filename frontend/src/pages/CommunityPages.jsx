@@ -137,7 +137,7 @@ export function ForumPage() {
   return <>
     <PageHeader eyebrow="Neighbourhood conversations" title="Community forum" description="Ask, share, trade and connect with the people around you." action={<button onClick={() => setOpen(true)} className="btn-primary"><Plus size={18} /> Create post</button>} />
     <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-      {['all', 'general', 'events', 'buy-sell', 'help', 'feedback'].map((item) => <button key={item} onClick={() => setCategory(item)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold capitalize ${category === item ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 dark:bg-slate-900'}`}>{item.replace('-', ' / ')}</button>)}
+      {['all', 'general', 'events', 'buy-sell', 'help', 'feedback'].map((item) => <button key={item} onClick={() => setCategory(item)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold capitalize transition ${category === item ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:text-brand-600 dark:bg-earth-800 dark:text-slate-300 dark:hover:text-white'}`}>{item.replace('-', ' / ')}</button>)}
     </div>
     <div className="mx-auto max-w-3xl space-y-5">
       {visible.map((post) => <article key={post._id} className="card p-6">
@@ -150,10 +150,10 @@ export function ForumPage() {
         </div>
         <h2 className="mt-5 font-display text-xl font-bold">{post.title}</h2>
         <p className="mt-2 leading-7 text-slate-600 dark:text-slate-300">{post.body}</p>
-        <div className="mt-5 flex gap-5 border-t border-slate-100 pt-4 text-sm font-bold text-slate-500 dark:border-slate-800">
-          <button onClick={() => like(post)} className="flex items-center gap-2 hover:text-red-500"><Heart size={18} /> {post.likes?.length || 0}</button>
-          <button onClick={() => dispatch(showToast({ message: 'Comments are shown in the post thread when available.' }))} className="flex items-center gap-2 hover:text-brand-600"><MessageCircle size={18} /> Comment</button>
-          <button onClick={() => navigator.clipboard?.writeText(post.title)} className="flex items-center gap-2 hover:text-brand-600"><Share2 size={18} /> Share</button>
+        <div className="mt-5 flex gap-5 border-t border-slate-100 pt-4 text-sm font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          <button onClick={() => like(post)} className="flex items-center gap-2 hover:text-red-500 dark:hover:text-red-400"><Heart size={18} /> {post.likes?.length || 0}</button>
+          <button onClick={() => dispatch(showToast({ message: 'Comments are shown in the post thread when available.' }))} className="flex items-center gap-2 hover:text-brand-600 dark:hover:text-brand-300"><MessageCircle size={18} /> Comment</button>
+          <button onClick={() => navigator.clipboard?.writeText(post.title)} className="flex items-center gap-2 hover:text-brand-600 dark:hover:text-brand-300"><Share2 size={18} /> Share</button>
         </div>
       </article>)}
     </div>
@@ -202,7 +202,7 @@ export function NotificationsPage() {
 
   return <>
     <PageHeader eyebrow="Your updates" title="Notification center" description="Arrivals, approvals, service updates and payment reminders - all in one calm feed." action={<button onClick={markAll} className="btn-secondary"><CheckCheck size={18} /> Mark all read</button>} />
-    <div className="mb-6 flex gap-2 overflow-x-auto">{['all', 'visitor', 'complaint', 'booking', 'invoice'].map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full px-4 py-2 text-sm font-bold capitalize ${filter === item ? 'bg-brand-600 text-white' : 'bg-white text-slate-500 dark:bg-slate-900'}`}>{item}</button>)}</div>
+    <div className="mb-6 flex gap-2 overflow-x-auto pb-1">{['all', 'visitor', 'complaint', 'booking', 'invoice'].map((item) => <button key={item} onClick={() => setFilter(item)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition ${filter === item ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:text-brand-600 dark:bg-earth-800 dark:text-slate-300 dark:hover:text-white'}`}>{item}</button>)}</div>
     <section className="card overflow-hidden">
       {visible.map((notification) => <button key={notification._id} onClick={() => markOne(notification)} className={`flex w-full gap-4 border-b border-slate-100 p-5 text-left last:border-0 dark:border-slate-800 ${!notification.isRead ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
         <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${!notification.isRead ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}><Bell size={19} /></div>

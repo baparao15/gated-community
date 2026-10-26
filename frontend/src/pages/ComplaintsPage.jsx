@@ -36,6 +36,9 @@ export default function ComplaintsPage() {
   const [payQuoteTarget, setPayQuoteTarget] = useState(null);
   const [form, setForm] = useState({ category: 'plumbing', scope: 'personal', description: '' });
   const [images, setImages] = useState([]);
+  const [evidence, setEvidence] = useState(null); // url of the evidence being previewed
+  const [evidenceFailed, setEvidenceFailed] = useState(false);
+  const isPdf = (url) => /\.pdf($|\?)/i.test(url || '');
   const [voiceFilled, setVoiceFilled] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -195,9 +198,9 @@ export default function ComplaintsPage() {
                     {!!item.images?.length && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {item.images.map((img) => (
-                          <a key={img} href={uploadUrl(img)} target="_blank" rel="noreferrer" className="block h-16 w-16 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                            <img src={uploadUrl(img)} alt="Attached evidence" className="h-full w-full object-cover" />
-                          </a>
+                          <button type="button" key={img} onClick={() => { setEvidenceFailed(false); setEvidence(uploadUrl(img)); }} className="grid h-16 w-16 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500 transition hover:ring-2 hover:ring-brand-400 dark:border-slate-800" title="View evidence">
+                            {isPdf(img) ? 'PDF' : <img src={uploadUrl(img)} alt="Attached evidence" className="h-full w-full object-cover" />}
+                          </button>
                         ))}
                       </div>
                     )}
@@ -213,7 +216,7 @@ export default function ComplaintsPage() {
                     {isResident && item.scope === 'personal' && quote?.status === 'pending' && (
                       <div className="mt-3 flex gap-2">
                         <button onClick={() => respondQuote(item, 'accept')} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Accept quote</button>
-                        <button onClick={() => respondQuote(item, 'reject')} className="rounded-xl border-2 border-red-200 px-4 py-2 text-xs font-bold text-red-600">Reject</button>
+                        <button onClick={() => respondQuote(item, 'reject')} className="rounded-xl border-2 border-red-200 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40">Reject</button>
                       </div>
                     )}
 
@@ -336,6 +339,25 @@ export default function ComplaintsPage() {
               <div className="font-bold">How was the service?</div>
               <Rating className="mt-2" defaultValue={5} />
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!evidence} onClose={() => setEvidence(null)} fullWidth maxWidth="md">
+        <DialogContent className="!p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-extrabold">Attached evidence</h2>
+            <button type="button" onClick={() => setEvidence(null)} className="btn-secondary !px-4 !py-1.5 text-sm">Close</button>
+          </div>
+          {evidenceFailed ? (
+            <div className="grid place-items-center gap-3 py-16 text-center text-sm text-slate-500">
+              <p>This file could not be previewed.</p>
+              <a href={evidence || '#'} target="_blank" rel="noreferrer" className="btn-primary">Open file directly</a>
+            </div>
+          ) : isPdf(evidence) ? (
+            <iframe title="Evidence PDF" src={evidence} className="h-[70vh] w-full rounded-xl border-0" />
+          ) : (
+            <img src={evidence || ''} alt="Attached evidence" onError={() => setEvidenceFailed(true)} className="mx-auto max-h-[70vh] w-auto max-w-full rounded-xl object-contain" />
           )}
         </DialogContent>
       </Dialog>

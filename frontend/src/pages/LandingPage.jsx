@@ -6,31 +6,31 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen overflow-hidden bg-white text-ink">
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/50 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
-          <Brand />
+        <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Brand size="default" />
           <div className="flex items-center gap-2">
-            <Link className="hidden px-4 py-2 font-bold text-brand-600 sm:block" to="/login">Sign in</Link>
-            <Link className="btn-primary !px-4 !py-2.5" to="/register">Join community</Link>
+            <Link className="px-3 py-2 text-sm font-bold text-brand-600 sm:px-4 sm:text-base" to="/login">Sign in</Link>
+            <Link className="btn-primary !px-3.5 !py-2 text-sm sm:!px-5 sm:!py-2.5 sm:text-base" to="/register">Join community</Link>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="relative flex flex-col justify-center bg-gradient-to-b from-blue-50 via-white to-white pb-12 pt-28 lg:min-h-screen lg:items-center lg:pb-20 lg:pt-36">
-          <div className="absolute left-[-8rem] top-20 h-80 w-80 rounded-full bg-blue-200/40 blur-3xl" />
-          <div className="absolute right-[-8rem] top-48 h-96 w-96 rounded-full bg-emerald-200/30 blur-3xl" />
-          <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 lg:grid-cols-[1.05fr_.95fr] lg:gap-14">
+        <section className="relative flex flex-col justify-center overflow-hidden bg-gradient-to-b from-blue-50 via-white to-white pb-12 pt-24 sm:pt-28 lg:min-h-screen lg:items-center lg:pb-20 lg:pt-36">
+          <div className="absolute left-[-8rem] top-20 h-80 w-80 rounded-full bg-blue-200/40 blur-3xl pointer-events-none" />
+          <div className="absolute right-[-8rem] top-48 h-96 w-96 rounded-full bg-emerald-200/30 blur-3xl pointer-events-none" />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:gap-14 lg:px-8">
             <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-bold text-brand-700 shadow-sm sm:text-sm">
+              <div className="mb-4 sm:mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3.5 py-1.5 text-xs font-bold text-brand-700 shadow-sm sm:px-4 sm:py-2 sm:text-sm">
                 <Sparkles size={16} /> One community. Beautifully connected.
               </div>
-              <h1 className="font-display text-[2.6rem] font-extrabold leading-[1.05] tracking-[-.045em] sm:text-6xl lg:text-7xl">
+              <h1 className="font-display text-3xl font-extrabold leading-[1.1] tracking-[-.04em] sm:text-5xl lg:text-6xl xl:text-7xl">
                 Everyday community life, <span className="text-brand-600">made effortless.</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:mt-6 sm:text-lg sm:leading-8">
+              <p className="mt-4 sm:mt-5 max-w-xl text-sm leading-6 text-slate-600 sm:text-lg sm:leading-8">
                 Smart Community Management System brings residents, management, security and service teams together—so your community feels safer, smoother and genuinely more connected.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link className="btn-primary justify-center" to="/login">Explore your dashboard <ArrowRight size={18} /></Link>
                 <Link className="btn-secondary justify-center" to="/register">Create an account</Link>
               </div>

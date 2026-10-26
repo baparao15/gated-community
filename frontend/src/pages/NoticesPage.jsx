@@ -76,7 +76,7 @@ export default function NoticesPage() {
           <div className="mt-5 text-xs font-bold uppercase tracking-wider text-earth-500">{notice.type} - {new Date(notice.eventDate || notice.createdAt || Date.now()).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</div>
           <h2 className="mt-2 font-display text-xl font-bold">{notice.title}</h2>
           <p className="mt-3 text-sm leading-6 text-earth-700 dark:text-earth-200">{notice.body}</p>
-          <button onClick={() => dispatch(showToast({ message: notice.body }))} className="mt-5 text-sm font-bold text-brand-600">Read more</button>
+          <button onClick={() => dispatch(showToast({ message: notice.body }))} className="mt-5 text-sm font-bold text-brand-600 dark:text-brand-300 dark:hover:text-brand-200">Read more</button>
         </article>;
       })}
     </div>

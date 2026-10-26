@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import { jsPDF } from 'jspdf';
-import { BarChart3, Building, Download, FileSpreadsheet, Plus, Search, ShieldAlert, Siren, UserPlus, UsersRound } from 'lucide-react';
+import { BarChart3, Building, Download, FileSpreadsheet, Plus, Search, ShieldAlert, UserPlus, UsersRound } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
@@ -17,7 +17,7 @@ const roles = ['Resident', 'Guard', 'Staff', 'Admin'];
 const statuses = ['active', 'pending', 'suspended', 'deactivated'];
 
 export function ResidentsPage() {
-  const { data, setData } = useApiData('/users', []);
+  const { data, setData } = useApiData('/users?limit=500', []);
   const users = asList(data);
   const dispatch = useDispatch();
   const [unitOpen, setUnitOpen] = useState(false);
@@ -112,8 +112,83 @@ export function ResidentsPage() {
       <StatCard title="Pending approvals" value={users.filter((item) => item.status === 'pending').length} icon={ShieldAlert} color="orange" />
     </div>
     <section className="card mt-7 overflow-hidden">
-      <div className="flex items-center justify-between p-5"><h2 className="section-title">Community directory</h2><div className="relative"><Search className="absolute left-3 top-2.5 text-slate-400" size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} className="search-input !py-2" placeholder="Search people" /></div></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-400 dark:bg-slate-900"><tr><th className="px-5 py-3">Name</th><th>Contact</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>{visibleUsers.map((user) => <tr key={user._id} className="border-t border-slate-100 dark:border-slate-800"><td className="px-5 py-4 font-bold">{user.name}</td><td>{user.email}<div className="text-xs text-slate-400">{user.phone}</div></td><td>{user.role}</td><td><StatusBadge value={user.status} /></td><td className="space-x-3">{user.status === 'pending' && <button onClick={() => approve(user)} className="font-bold text-emerald-600">Approve</button>}<button onClick={() => openManage(user)} className="font-bold text-brand-600">Manage</button></td></tr>)}</tbody></table></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
+        <h2 className="section-title">Community directory</h2>
+        <div className="relative w-full sm:w-auto">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={17} />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} className="search-input !py-2 w-full sm:w-64" placeholder="Search people" />
+        </div>
+      </div>
+
+      {/* Mobile Card View (< md) */}
+      <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+        {visibleUsers.length === 0 && <div className="p-6 text-center text-sm text-slate-400">No users found.</div>}
+        {visibleUsers.map((user) => (
+          <div key={user._id} className="p-4 flex flex-col gap-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="font-bold text-sm text-ink dark:text-white">{user.name}</div>
+                <div className="text-xs text-slate-500 break-all">{user.email}</div>
+                {user.phone && <div className="text-xs text-slate-400">{user.phone}</div>}
+              </div>
+              <StatusBadge value={user.status} />
+            </div>
+            <div className="flex items-center justify-between pt-1 text-xs">
+              <span className="font-semibold text-slate-600 dark:text-slate-300">Role: <span className="text-brand-600 dark:text-brand-400">{user.role}</span></span>
+              <div className="flex items-center gap-2">
+                {user.status === 'pending' && (
+                  <button type="button" onClick={() => approve(user)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700">
+                    <CheckCircle2 size={13} /> Approve
+                  </button>
+                )}
+                <button type="button" onClick={() => openManage(user)} className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-300 dark:hover:bg-brand-900/30">
+                  Manage
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View (>= md) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-400 dark:bg-slate-900">
+            <tr>
+              <th className="px-5 py-3">Name</th>
+              <th>Contact</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleUsers.map((user) => (
+              <tr key={user._id} className="border-t border-slate-100 dark:border-slate-800">
+                <td className="px-5 py-4 font-bold">{user.name}</td>
+                <td>
+                  {user.email}
+                  <div className="text-xs text-slate-400">{user.phone}</div>
+                </td>
+                <td>{user.role}</td>
+                <td><StatusBadge value={user.status} /></td>
+                <td>
+                  <div className="flex items-center gap-2">
+                    {user.status === 'pending' && (
+                      <button type="button" onClick={() => approve(user)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700">
+                        <CheckCircle2 size={14} /> Approve
+                      </button>
+                    )}
+                    <button type="button" onClick={() => openManage(user)} className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-300 dark:hover:bg-brand-900/30">
+                      Manage
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <Dialog open={unitOpen} onClose={() => { setUnitOpen(false); setCreatedUnit(null); }} fullWidth maxWidth="sm">
@@ -169,11 +244,4 @@ export function ReportsPage() {
   const download = (name) => { const doc = new jsPDF(); doc.setFontSize(22); doc.text('Smart Community Management System Report', 20, 25); doc.setFontSize(14); doc.text(name, 20, 42); doc.setFontSize(10); doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 20, 52); doc.text('This export uses live API data when the backend is connected.', 20, 70); doc.save(`${name.toLowerCase().replaceAll(' ', '-')}.pdf`); };
   const downloadCsv = (name, text, type) => { const csv = `Report,Type,Description,Generated\n"${name}","${type}","${text}","${new Date().toLocaleString('en-IN')}"\n`; const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); const link = document.createElement('a'); link.href = url; link.download = `${name.toLowerCase().replaceAll(' ', '-')}.csv`; link.click(); URL.revokeObjectURL(url); };
   return <><PageHeader eyebrow="Insights & exports" title="Community reports" description="Generate operational summaries in PDF or Excel-compatible formats." /><div className="grid gap-5 md:grid-cols-2">{reports.map(([name, text, type]) => <article key={name} className="card p-6"><div className="flex items-start justify-between"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-50 text-violet-600"><BarChart3 /></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold dark:bg-slate-800">{type}</span></div><h2 className="mt-5 font-display text-xl font-bold">{name}</h2><p className="mt-2 text-sm text-slate-500">{text}</p><div className="mt-6 flex gap-2"><button onClick={() => download(name)} className="btn-primary !px-4 !py-2 text-sm"><Download size={16} /> PDF</button><button onClick={() => downloadCsv(name, text, type)} className="btn-secondary !px-4 !py-2 text-sm"><FileSpreadsheet size={16} /> Excel</button></div></article>)}</div></>;
-}
-
-export function EmergencyPage() {
-  const dispatch = useDispatch();
-  const [message, setMessage] = useState('Medical emergency assistance required at the main gate.');
-  const trigger = async () => { try { await api.post('/alerts/emergency', { title: 'Security emergency alert', message }); dispatch(showToast({ message: 'Emergency alert broadcast to all community users', severity: 'error' })); } catch (err) { dispatch(showToast({ message: err.response?.data?.message || 'Emergency alert could not be sent', severity: 'error' })); } };
-  return <><PageHeader eyebrow="Critical response" title="Emergency command" description="Broadcast an urgent alert and access verified response contacts." /><div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]"><section className="overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 to-rose-800 p-7 text-white shadow-xl"><Siren size={38} /><h2 className="mt-5 font-display text-3xl font-extrabold">Broadcast emergency alert</h2><p className="mt-2 text-red-100">This immediately notifies residents, security, staff and administration.</p><textarea className="mt-6 w-full rounded-2xl border border-white/20 bg-white/10 p-4 outline-none placeholder:text-red-200" rows="4" value={message} onChange={(event) => setMessage(event.target.value)} /><button onClick={trigger} className="mt-4 rounded-2xl bg-white px-6 py-3 font-bold text-red-600">Send community-wide alert</button></section><section className="card p-6"><h2 className="section-title">Emergency contacts</h2><div className="mt-5 space-y-3">{[['Community security', '+91 90000 10001'], ['Ambulance', '108'], ['Fire & rescue', '101'], ['Police emergency', '112'], ['Community medical room', '+91 90000 10009']].map(([name, phone]) => <a key={name} href={`tel:${phone}`} className="flex items-center justify-between rounded-2xl border border-slate-100 p-4 dark:border-slate-800"><div><div className="font-bold">{name}</div><div className="text-sm text-slate-400">{phone}</div></div><span className="font-bold text-brand-600">Call</span></a>)}</div></section></div></>;
 }

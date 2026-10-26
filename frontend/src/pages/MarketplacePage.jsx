@@ -470,7 +470,7 @@ export default function MarketplacePage() {
               className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${
                 tab === value
                   ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
-                  : 'bg-earth-100 text-earth-700 hover:bg-earth-200 dark:bg-earth-800 dark:text-earth-200 dark:hover:bg-earth-700'
+                  : 'bg-earth-100 text-earth-700 hover:bg-earth-200 dark:bg-earth-800 dark:text-earth-100 dark:hover:bg-earth-700 dark:hover:text-white'
               }`}
             >
               <Icon size={15} /> {label}
@@ -494,17 +494,17 @@ export default function MarketplacePage() {
               {search && (
                 <button
                   onClick={clearSearch}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-earth-400 hover:text-earth-700"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-earth-400 hover:text-earth-700 dark:hover:text-white"
                 >
                   <X size={15} />
                 </button>
               )}
             </div>
             {/* category pills */}
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 gap-2 overflow-x-auto max-w-full pb-0.5">
               <button
                 onClick={() => updateCatFilter('all')}
-                className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 dark:bg-earth-800 dark:text-earth-200'}`}
+                className={`rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 hover:bg-earth-200 dark:bg-earth-800 dark:text-earth-100 dark:hover:bg-earth-700 dark:hover:text-white'}`}
               >
                 All
               </button>
@@ -512,7 +512,7 @@ export default function MarketplacePage() {
                 <button
                   key={value}
                   onClick={() => updateCatFilter(value)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === value ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 dark:bg-earth-800 dark:text-earth-200'}`}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition ${catFilter === value ? 'bg-brand-600 text-white' : 'bg-earth-100 text-earth-700 hover:bg-earth-200 dark:bg-earth-800 dark:text-earth-100 dark:hover:bg-earth-700 dark:hover:text-white'}`}
                 >
                   <Icon size={14} /> {label}
                 </button>
@@ -527,7 +527,7 @@ export default function MarketplacePage() {
         <>
           {activeStore ? (
             <>
-              <button onClick={closeStore} className="mb-5 inline-flex items-center gap-1.5 rounded-xl border border-earth-200 bg-white px-4 py-2 text-sm font-bold text-brand-600 shadow-sm hover:bg-brand-50 dark:border-earth-700 dark:bg-earth-900">
+              <button onClick={closeStore} className="mb-5 inline-flex items-center gap-1.5 rounded-xl border border-earth-200 bg-white px-4 py-2 text-sm font-bold text-brand-600 shadow-sm hover:bg-brand-50 dark:border-earth-700 dark:bg-earth-900 dark:text-brand-300 dark:hover:bg-earth-800">
                 <ArrowLeft size={16} /> Back to marketplace
               </button>
               {/* store hero */}
@@ -639,7 +639,7 @@ export default function MarketplacePage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button onClick={() => openCreate({ business: business._id })} className="btn-primary !px-3 !py-2 text-sm"><Plus size={15} /> Add product</button>
                     <button onClick={() => openEditBusiness(business)} className="btn-secondary !px-3 !py-2 text-sm"><Pencil size={15} /> Edit</button>
-                    <button onClick={() => removeBusiness(business)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50"><Trash2 size={15} /></button>
+                    <button onClick={() => removeBusiness(business)} className="rounded-xl border-2 border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/30"><Trash2 size={15} /></button>
                   </div>
                 </article>
               ))}

@@ -207,6 +207,9 @@ const updateMe = async (req, res) => {
   if (avatar !== undefined) update.avatar = avatar;
 
   if (!Object.keys(update).length) return sendError(res, 'No profile fields provided', null, 400);
+  if (update.phone && !/^[0-9+\-\s()]{7,20}$/.test(String(update.phone).trim())) {
+    return sendError(res, 'Enter a valid phone number', null, 400);
+  }
 
   const user = await User.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
   return sendSuccess(res, 'Profile updated', user);

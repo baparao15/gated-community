@@ -16,7 +16,9 @@ import ProfilePage from '../pages/ProfilePage';
 import MarketplacePage from '../pages/MarketplacePage';
 import SettingsPage from '../pages/Settings';
 import UnitsPage from '../pages/Units';
-import { EmergencyPage, ReportsPage, ResidentsPage } from '../pages/AdminPages';
+import { ReportsPage, ResidentsPage } from '../pages/AdminPages';
+import EmergencyPage from '../pages/EmergencyPage';
+import ChatPage from '../pages/ChatPage';
 
 const For = ({ roles, children }) => <ProtectedRoute roles={roles}>{children}</ProtectedRoute>;
 const allRoles = ['Resident', 'Admin', 'SuperAdmin', 'Guard', 'Staff'];
@@ -50,7 +52,8 @@ export default function AppRoutes() {
         <Route path="residents" element={<For roles={adminRoles}><ResidentsPage /></For>} />
         <Route path="units" element={<For roles={adminRoles}><UnitsPage /></For>} />
         <Route path="reports" element={<For roles={adminRoles}><ReportsPage /></For>} />
-        <Route path="emergency" element={<For roles={['Guard', ...adminRoles]}><EmergencyPage /></For>} />
+        <Route path="emergency" element={<For roles={['Resident', 'Guard', ...adminRoles]}><EmergencyPage /></For>} />
+        <Route path="chat" element={<For roles={allRoles}><ChatPage /></For>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

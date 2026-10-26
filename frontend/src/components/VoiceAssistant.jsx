@@ -111,7 +111,7 @@ export default function VoiceAssistant({ variant = 'fab' }) {
       const recognition = new SpeechRecognitionCtor();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-IN';
+      recognition.lang = navigator.language || 'en-IN';
       recognition.onresult = (event) => {
         const text = Array.from(event.results).map((r) => r[0].transcript).join(' ');
         if (text.trim()) setCaption(text);
@@ -137,7 +137,7 @@ export default function VoiceAssistant({ variant = 'fab' }) {
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
           const form = new FormData();
           form.append('audio', blob, `command.${blob.type.includes('mp4') ? 'm4a' : 'webm'}`);
-          form.append('language', 'en');
+          form.append('language', 'auto');
           const { data } = await api.post('/voice/transcribe', form, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });

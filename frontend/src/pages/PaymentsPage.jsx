@@ -36,12 +36,19 @@ export default function PaymentsPage() {
 
   // Invoices & Payouts data
   const { data: invoiceData, setData: setInvoices } = useApiData(isAdmin ? '/invoices' : '/invoices/my', []);
-  const { data: usersData } = useApiData(isAdmin ? '/users' : null, []);
+  const { data: usersData } = useApiData(isAdmin ? '/users?limit=500' : null, []);
   const { data: unitsData } = useApiData(isAdmin ? '/units' : null, []);
   const { data: workerPayoutData, setData: setWorkerPayouts } = useApiData(isAdmin ? '/complaints/worker-payouts' : null, []);
 
   const invoices = asList(invoiceData);
-  const users = asList(usersData).filter((u) => u.role === 'Resident');
+  // Active residents only, one entry per email (duplicate accounts would otherwise
+  // appear as identical rows in the invoice dropdown).
+  const users = Array.from(
+    asList(usersData)
+      .filter((u) => u.role === 'Resident' && u.status === 'active')
+      .reduce((map, u) => (map.has(u.email) ? map : map.set(u.email, u)), new Map())
+      .values(),
+  );
   const units = asList(unitsData);
   const workerPayoutJobs = workerPayoutData?.jobs || [];
   const workerSummary = workerPayoutData?.summary || { totalCollectedByAdmin: 0, totalSettledToWorkers: 0, totalPendingToWorkers: 0 };
@@ -114,20 +121,100 @@ export default function PaymentsPage() {
     try {
       const { data: response } = await api.get(`/invoices/${inv._id}/receipt`);
       receiptData = response.data;
-    } catch {}
+    } catch { /* fall back to the invoice we already have */ }
+
+    const invoice = { ...inv, ...(receiptData?.invoice || {}) };
+    const payment = receiptData?.payment || invoiceOrResult?.payment || null;
+    const receiptNo = receiptData?.receiptNumber || payment?.receiptNumber || invoice.invoiceNumber;
+    const paidOn = new Date(payment?.paidAt || invoice.paidAt || Date.now());
+    const amountPaid = Number(payment?.amount ?? invoice.paidAmount ?? invoice.totalAmount) || 0;
+    const money = (n) => `INR ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0)}`;
+    const methodLabel = String(payment?.method || 'online').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const unit = invoice.unit ? `${invoice.unit.blockName || ''}${invoice.unit.blockName ? '-' : ''}${invoice.unit.unitNumber || ''}` : '-';
 
     const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.text('Smart Community Management System', 20, 25);
+    const W = doc.internal.pageSize.getWidth();
+    const BRAND = [148, 61, 40];
+    const MUTED = [110, 110, 110];
+
+    // Header band
+    doc.setFillColor(...BRAND);
+    doc.rect(0, 0, W, 38, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('Panchayat Community Hub', 16, 17);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Payment Receipt', 16, 26);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(`Receipt: ${receiptData?.receiptNumber || inv.invoiceNumber}`, 20, 42);
-    doc.text(`Resident: ${inv.resident?.name || 'Resident'}`, 20, 52);
-    doc.text(`Amount: INR ${inv.totalAmount}`, 20, 62);
-    doc.text(`Status: ${inv.status?.toUpperCase()}`, 20, 72);
-    doc.text(`Period: ${monthLabel(inv.period)}`, 20, 82);
-    doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 20, 92);
-    doc.text('Thank you for your payment.', 20, 112);
-    doc.save(`${inv.invoiceNumber}-receipt.pdf`);
+    doc.text('PAID', W - 16, 20, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(paidOn.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), W - 16, 27, { align: 'right' });
+
+    // Receipt meta
+    doc.setTextColor(30, 30, 30);
+    const label = (text, x, y) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(text.toUpperCase(), x, y); };
+    const value = (text, x, y) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 30, 30); doc.text(String(text || '-'), x, y); };
+
+    label('Receipt no.', 16, 52);   value(receiptNo, 16, 59);
+    label('Invoice no.', 80, 52);   value(invoice.invoiceNumber, 80, 59);
+    label('Payment date', 145, 52); value(paidOn.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }), 145, 59);
+
+    doc.setDrawColor(225, 225, 225);
+    doc.line(16, 66, W - 16, 66);
+
+    label('Received from', 16, 76);  value(invoice.resident?.name || 'Resident', 16, 83);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED);
+    if (invoice.resident?.email) doc.text(invoice.resident.email, 16, 89);
+    if (invoice.resident?.phone) doc.text(invoice.resident.phone, 16, 94);
+    label('Apartment / unit', 80, 76); value(unit, 80, 83);
+    label('Payment method', 145, 76);  value(methodLabel, 145, 83);
+    if (payment?.reference) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED); doc.text(`Ref: ${payment.reference}`, 145, 89); }
+
+    // Line-item table
+    let y = 108;
+    doc.setFillColor(247, 241, 236);
+    doc.rect(16, y, W - 32, 9, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...BRAND);
+    doc.text('DESCRIPTION', 20, y + 6);
+    doc.text('AMOUNT', W - 20, y + 6, { align: 'right' });
+
+    y += 17;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+    doc.text(String(invoice.title || invoice.notes || 'Community charges').slice(0, 70), 20, y);
+    doc.text(money(invoice.subtotal ?? invoice.totalAmount), W - 20, y, { align: 'right' });
+    if (invoice.period?.month) {
+      y += 6; doc.setFontSize(9); doc.setTextColor(...MUTED);
+      doc.text(`Billing period: ${monthLabel(invoice.period)}`, 20, y);
+    }
+    if (Number(invoice.tax) > 0) {
+      y += 9; doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+      doc.text('Tax', 20, y); doc.text(money(invoice.tax), W - 20, y, { align: 'right' });
+    }
+
+    y += 8;
+    doc.setDrawColor(225, 225, 225); doc.line(16, y, W - 16, y);
+
+    // Total box
+    y += 8;
+    doc.setFillColor(...BRAND);
+    doc.roundedRect(W - 96, y, 80, 18, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    doc.text('AMOUNT PAID', W - 90, y + 7);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+    doc.text(money(amountPaid), W - 22, y + 13, { align: 'right' });
+
+    // Footer
+    doc.setTextColor(...MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text('Thank you for your payment.', 16, y + 40);
+    doc.text('This is a computer-generated receipt and does not require a signature.', 16, y + 46);
+    doc.setDrawColor(...BRAND); doc.setLineWidth(0.8); doc.line(16, 282, W - 16, 282);
+    doc.setFontSize(8); doc.text(`Generated on ${new Date().toLocaleString('en-IN')}`, 16, 288);
+
+    doc.save(`${receiptNo}-receipt.pdf`);
   };
 
   // Admin: Create custom invoice
@@ -222,7 +309,7 @@ export default function PaymentsPage() {
               className={`rounded-full px-5 py-2 text-sm font-bold transition ${
                 activeTab === 'invoices'
                   ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20'
-                  : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-200'
+                  : 'bg-earth-200 text-earth-700 hover:bg-earth-300 dark:bg-earth-800 dark:text-earth-100 dark:hover:bg-earth-700'
               }`}
             >
               Invoices &amp; Collections ({invoices.length})
@@ -232,7 +319,7 @@ export default function PaymentsPage() {
               className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-bold transition ${
                 activeTab === 'worker-payouts'
                   ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20'
-                  : 'bg-earth-200 text-earth-700 dark:bg-earth-800 dark:text-earth-200'
+                  : 'bg-earth-200 text-earth-700 hover:bg-earth-300 dark:bg-earth-800 dark:text-earth-100 dark:hover:bg-earth-700'
               }`}
             >
               <Wrench size={16} />
@@ -322,7 +409,7 @@ export default function PaymentsPage() {
                     {isPaid ? (
                       <button
                         onClick={() => downloadReceipt(inv)}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-brand-600"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-300"
                       >
                         <Download size={14} /> PDF Receipt
                       </button>
@@ -400,7 +487,7 @@ export default function PaymentsPage() {
                         {isPaid ? (
                           <button
                             onClick={() => downloadReceipt(inv)}
-                            className="inline-flex items-center gap-1 rounded-xl border border-earth-200 px-3 py-1.5 text-xs font-bold text-brand-600 hover:bg-earth-50"
+                            className="inline-flex items-center gap-1 rounded-xl border border-earth-200 px-3 py-1.5 text-xs font-bold text-brand-600 hover:bg-earth-50 dark:border-earth-700 dark:text-brand-300 dark:hover:bg-earth-800"
                           >
                             <Download size={14} /> PDF Receipt
                           </button>
@@ -587,7 +674,7 @@ export default function PaymentsPage() {
                   <option value="">-- Choose Resident --</option>
                   {users.map((u) => (
                     <option key={u._id} value={u._id}>
-                      {u.name} ({u.email})
+                      {u.name} ({u.email}{u.phone ? ` · ${u.phone}` : ''})
                     </option>
                   ))}
                 </select>

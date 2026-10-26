@@ -128,8 +128,8 @@ export default function BookingsPage(){
             {b.purpose && <div className="text-xs text-earth-500">{b.purpose}</div>}
             {role !== 'Resident' && b.status === 'pending' && (
               <div className="flex gap-3 pt-1">
-                <button onClick={() => approve(b, 'approve')} className="text-xs font-bold text-emerald-600">Approve</button>
-                <button onClick={() => approve(b, 'reject')} className="text-xs font-bold text-red-500">Reject</button>
+                <button onClick={() => approve(b, 'approve')} className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Approve</button>
+                <button onClick={() => approve(b, 'reject')} className="text-xs font-bold text-red-500 dark:text-red-400">Reject</button>
               </div>
             )}
           </div>
@@ -159,8 +159,8 @@ export default function BookingsPage(){
                   <td className="space-x-3">
                     {b.status === 'pending' ? (
                       <>
-                        <button onClick={() => approve(b, 'approve')} className="font-bold text-emerald-600">Approve</button>
-                        <button onClick={() => approve(b, 'reject')} className="font-bold text-red-500">Reject</button>
+                        <button onClick={() => approve(b, 'approve')} className="font-bold text-emerald-600 dark:text-emerald-400">Approve</button>
+                        <button onClick={() => approve(b, 'reject')} className="font-bold text-red-500 dark:text-red-400">Reject</button>
                       </>
                     ) : '—'}
                   </td>

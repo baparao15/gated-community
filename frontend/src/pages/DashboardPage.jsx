@@ -19,7 +19,7 @@ import StatusBadge from '../components/StatusBadge';
 import useApiData from '../hooks/useApiData';
 import { asList, currency, unitLabel } from '../utils/apiData';
 
-const firstName = (name) => name?.split(' ')[0] || 'there';
+const displayName = (name) => name?.trim() || 'there';
 
 const colorClass = (color) => ({
   blue: 'bg-blue-50 text-blue-600',
@@ -86,7 +86,7 @@ export default function DashboardPage() {
       <div className="hidden sm:block">
         <PageHeader
           eyebrow="Panchayat community hub"
-          title={`Welcome back, ${firstName(user?.name)}`}
+          title={`Welcome back, ${displayName(user?.name)}`}
           description={dashboard.shortIntro}
         />
 
@@ -98,7 +98,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
               {dashboard.actions.map(({ label, icon: Icon, to, color }) => (
-                <Link key={label} to={to} className="min-h-28 rounded-2xl border border-earth-300/70 bg-white/80 p-3 transition active:scale-[.98] hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-earth-700 dark:bg-earth-900 sm:flex sm:min-h-0 sm:items-center sm:gap-4 sm:p-4">
+                <Link key={label} to={to} className="min-h-28 rounded-2xl border border-earth-300/70 bg-white/80 p-3 text-ink dark:text-earth-50 transition active:scale-[.98] hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-earth-700 dark:bg-earth-900 sm:flex sm:min-h-0 sm:items-center sm:gap-4 sm:p-4">
                   <div className={`grid h-11 w-11 place-items-center rounded-2xl ${colorClass(color)}`}><Icon size={20} /></div>
                   <span className="mt-3 block text-sm font-extrabold leading-tight sm:mt-0 sm:text-base">{label}</span>
                 </Link>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-earth-400">{greeting}</p>
             <h1 className="mt-0.5 font-display text-[1.45rem] font-extrabold leading-tight text-ink dark:text-earth-50">
-              {firstName(user?.name)} 👋
+              {displayName(user?.name)} 👋
             </h1>
           </div>
           <Link

@@ -37,7 +37,10 @@ const transcribe = async (req, res) => {
     // meaningfully better accuracy, which matters more than speed for a short command.
     form.append('model', process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3');
     form.append('response_format', 'json');
-    form.append('language', req.body.language || 'en');
+    // Omit `language` for auto-detection (Telugu, Hindi, English, ...). Only pin it
+    // when the client explicitly asks for a specific one.
+    const requestedLanguage = (req.body.language || '').trim().toLowerCase();
+    if (requestedLanguage && requestedLanguage !== 'auto') form.append('language', requestedLanguage);
     form.append('temperature', '0');
     form.append('prompt', DOMAIN_PROMPT);
 

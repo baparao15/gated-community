@@ -4,11 +4,20 @@ const ResidentProfile = require('../models/ResidentProfile');
 const AuditLog = require('../models/AuditLog');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/response');
 
-const EMERGENCY_CONTACTS = [
-  { name: 'Fire Station', phone: '101', type: 'emergency' },
-  { name: 'Police', phone: '100', type: 'emergency' },
+const EmergencyContact = require('../models/EmergencyContact');
+const SosAlert = require('../models/SosAlert');
+const Notification = require('../models/Notification');
+const User = require('../models/User');
+const { emitToRole } = require('../utils/socket');
+
+const DEFAULT_EMERGENCY_CONTACTS = [
+  { name: 'Community security', phone: '+91 90000 10001', type: 'security' },
   { name: 'Ambulance', phone: '108', type: 'emergency' },
+  { name: 'Fire & rescue', phone: '101', type: 'emergency' },
+  { name: 'Police emergency', phone: '112', type: 'emergency' },
+  { name: 'Community medical room', phone: '+91 90000 10009', type: 'medical' },
 ];
+const PHONE_REGEX = /^[0-9+\-\s()]{3,20}$/;
 
 // ── Vehicles ───────────────────────────────────────────────────────────────────
 const registerVehicle = async (req, res) => {
@@ -104,25 +113,101 @@ const getSecurityDashboard = async (req, res) => {
 
 // ── Emergency Contacts ─────────────────────────────────────────────────────────
 const listEmergencyContacts = async (req, res) => {
-  // In production, store in DB; for now serve static + any future DB records
-  return sendSuccess(res, 'Emergency contacts', EMERGENCY_CONTACTS);
+  if (!(await EmergencyContact.estimatedDocumentCount())) {
+    await EmergencyContact.insertMany(DEFAULT_EMERGENCY_CONTACTS);
+  }
+  const contacts = await EmergencyContact.find().sort({ createdAt: 1 });
+  return sendSuccess(res, 'Emergency contacts', contacts);
 };
 
 const addEmergencyContact = async (req, res) => {
-  EMERGENCY_CONTACTS.push(req.body);
+  const { name, phone, type } = req.body;
+  if (!name?.trim()) return sendError(res, 'Name is required', null, 400);
+  if (!phone || !PHONE_REGEX.test(String(phone).trim())) return sendError(res, 'Enter a valid phone number', null, 400);
+
+  const contact = await EmergencyContact.create({ name: name.trim(), phone: String(phone).trim(), type, createdBy: req.user._id });
 
   await AuditLog.create({
     actor: req.user._id,
     actorEmail: req.user.email,
     action: 'ADD_EMERGENCY_CONTACT',
     entity: 'EmergencyContact',
+    entityId: contact._id,
     ip: req.ip,
   });
 
-  return sendSuccess(res, 'Emergency contact added', req.body, 201);
+  return sendSuccess(res, 'Emergency contact added', contact, 201);
+};
+
+const deleteEmergencyContact = async (req, res) => {
+  const contact = await EmergencyContact.findByIdAndDelete(req.params.id);
+  if (!contact) return sendError(res, 'Contact not found', null, 404);
+
+  await AuditLog.create({
+    actor: req.user._id,
+    actorEmail: req.user.email,
+    action: 'REMOVE_EMERGENCY_CONTACT',
+    entity: 'EmergencyContact',
+    entityId: contact._id,
+    ip: req.ip,
+  });
+
+  return sendSuccess(res, 'Emergency contact removed');
+};
+
+// ── SOS ────────────────────────────────────────────────────────────────────────
+// A resident raises an SOS; guards and admins are notified straight away with the
+// resident's name, unit and phone so they can respond without a callback.
+const triggerSos = async (req, res) => {
+  const { category = 'other', message } = req.body;
+  const profile = await ResidentProfile.findOne({ user: req.user._id }).populate('unit', 'blockName unitNumber');
+  const me = await User.findById(req.user._id).select('name phone');
+
+  const alert = await SosAlert.create({
+    user: req.user._id,
+    unit: profile?.unit?._id,
+    phone: me?.phone,
+    category: ['medical', 'fire', 'security', 'other'].includes(category) ? category : 'other',
+    message: message ? String(message).slice(0, 500) : undefined,
+  });
+
+  const unitLabel = profile?.unit ? `${profile.unit.blockName}-${profile.unit.unitNumber}` : 'unit not linked';
+  const title = `SOS from ${me?.name || req.user.name} (${unitLabel})`;
+  const body = `${alert.category.toUpperCase()} emergency${message ? `: ${message}` : ''}${me?.phone ? ` · Call ${me.phone}` : ''}`;
+
+  const responders = await User.find({ role: { $in: ['Guard', 'Admin', 'SuperAdmin'] }, status: 'active', isDeleted: false }).select('_id');
+  if (responders.length) {
+    await Notification.insertMany(responders.map((r) => ({ recipient: r._id, type: 'emergency', title, message: body })));
+  }
+  try {
+    ['Guard', 'Admin', 'SuperAdmin'].forEach((role) => emitToRole(role, 'alert:sos', { id: alert._id, title, message: body }));
+  } catch (_) {}
+
+  return sendSuccess(res, 'SOS sent. Help has been alerted.', alert, 201);
+};
+
+const listSosAlerts = async (req, res) => {
+  const filter = req.user.role === 'Resident' ? { user: req.user._id } : {};
+  const alerts = await SosAlert.find(filter)
+    .populate('user', 'name phone')
+    .populate('unit', 'blockName unitNumber')
+    .sort({ status: 1, createdAt: -1 })
+    .limit(50);
+  return sendSuccess(res, 'SOS alerts', alerts);
+};
+
+const resolveSos = async (req, res) => {
+  const alert = await SosAlert.findOneAndUpdate(
+    { _id: req.params.id, status: 'active' },
+    { status: 'resolved', resolvedBy: req.user._id, resolvedAt: new Date() },
+    { new: true }
+  );
+  if (!alert) return sendError(res, 'Active SOS alert not found', null, 404);
+  return sendSuccess(res, 'SOS marked as resolved', alert);
 };
 
 module.exports = {
   registerVehicle, getMyVehicles, searchVehicles, deleteVehicle,
-  getSecurityDashboard, listEmergencyContacts, addEmergencyContact,
+  getSecurityDashboard, listEmergencyContacts, addEmergencyContact, deleteEmergencyContact,
+  triggerSos, listSosAlerts, resolveSos,
 };
