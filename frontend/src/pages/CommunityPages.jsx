@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import { QRCodeSVG } from 'qrcode.react';
-import { Bell, Car, CheckCheck, Heart, MessageCircle, Plus, Search, Share2 } from 'lucide-react';
+import { Bell, Car, CheckCheck, Heart, MessageCircle, Plus, Search, Send, Share2, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import useApiData from '../hooks/useApiData';
@@ -101,9 +101,13 @@ export function VehiclesPage() {
 export function ForumPage() {
   const { data, setData } = useApiData('/forum/posts', []);
   const posts = asList(data);
+  const user = useSelector((s) => s.auth.user);
   const [category, setCategory] = useState('all');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', body: '', category: 'general' });
+  const [openComments, setOpenComments] = useState({});
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentSubmitting, setCommentSubmitting] = useState({});
   const dispatch = useDispatch();
 
   const create = async (event) => {
@@ -132,6 +136,63 @@ export function ForumPage() {
     }
   };
 
+  const toggleComments = (postId) => {
+    setOpenComments((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
+
+  const handleCommentChange = (postId, value) => {
+    setCommentDrafts((prev) => ({
+      ...prev,
+      [postId]: value,
+    }));
+  };
+
+  const handleCommentSubmit = async (event, postId) => {
+    event.preventDefault();
+    const text = (commentDrafts[postId] || '').trim();
+    if (!text) return;
+
+    setCommentSubmitting((prev) => ({ ...prev, [postId]: true }));
+    try {
+      const { data: response } = await api.post(`/forum/posts/${postId}/comment`, { body: text });
+      const newComment = response.data;
+      const formattedComment = {
+        ...newComment,
+        author: newComment?.author?.name ? newComment.author : { _id: user?._id, name: user?.name || 'Resident', role: user?.role },
+      };
+
+      setData(posts.map((item) => (
+        item._id === postId
+          ? { ...item, comments: [...(item.comments || []), formattedComment] }
+          : item
+      )));
+
+      setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
+      dispatch(showToast({ message: 'Comment added' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not post comment', severity: 'error' }));
+    } finally {
+      setCommentSubmitting((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      await api.delete(`/forum/posts/${postId}/comments/${commentId}`);
+      setData(posts.map((item) => (
+        item._id === postId
+          ? { ...item, comments: (item.comments || []).filter((c) => c._id !== commentId) }
+          : item
+      )));
+      dispatch(showToast({ message: 'Comment deleted' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not delete comment', severity: 'error' }));
+    }
+  };
+
   const visible = category === 'all' ? posts : posts.filter((post) => post.category === category);
 
   return <>
@@ -152,9 +213,115 @@ export function ForumPage() {
         <p className="mt-2 leading-7 text-slate-600 dark:text-slate-300">{post.body}</p>
         <div className="mt-5 flex gap-5 border-t border-slate-100 pt-4 text-sm font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
           <button onClick={() => like(post)} className="flex items-center gap-2 hover:text-red-500 dark:hover:text-red-400"><Heart size={18} /> {post.likes?.length || 0}</button>
-          <button onClick={() => dispatch(showToast({ message: 'Comments are shown in the post thread when available.' }))} className="flex items-center gap-2 hover:text-brand-600 dark:hover:text-brand-300"><MessageCircle size={18} /> Comment</button>
-          <button onClick={() => navigator.clipboard?.writeText(post.title)} className="flex items-center gap-2 hover:text-brand-600 dark:hover:text-brand-300"><Share2 size={18} /> Share</button>
+          <button
+            onClick={() => toggleComments(post._id)}
+            className={`flex items-center gap-2 transition hover:text-brand-600 dark:hover:text-brand-300 ${openComments[post._id] ? 'text-brand-600 dark:text-brand-400 font-extrabold' : ''}`}
+            aria-expanded={Boolean(openComments[post._id])}
+          >
+            <MessageCircle size={18} />
+            <span>Comment</span>
+            {(post.comments?.length || 0) > 0 && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:bg-earth-800 dark:text-slate-300">
+                {post.comments.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(post.title);
+                dispatch(showToast({ message: 'Post title copied to clipboard' }));
+              }
+            }}
+            className="flex items-center gap-2 hover:text-brand-600 dark:hover:text-brand-300"
+          >
+            <Share2 size={18} /> Share
+          </button>
         </div>
+
+        {openComments[post._id] && (
+          <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="space-y-3 mb-4">
+              {(!post.comments || post.comments.length === 0) ? (
+                <p className="py-2 text-xs text-slate-400 italic">No comments yet. Be the first to join the conversation!</p>
+              ) : (
+                post.comments.map((comment, idx) => {
+                  const authorName = comment.author?.name || 'Resident';
+                  const initials = authorName.split(' ').map((x) => x[0]).join('').slice(0, 2);
+                  const isAuthor = user && (
+                    comment.author?._id === user._id ||
+                    comment.author === user._id ||
+                    ['Admin', 'SuperAdmin'].includes(user.role)
+                  );
+
+                  return (
+                    <div key={comment._id || idx} className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-sm dark:bg-earth-900/60">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-xs text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                            {authorName}
+                            {comment.author?.role && comment.author.role !== 'Resident' && (
+                              <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+                                {comment.author.role}
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-slate-400">
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleString('en-IN', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }) : 'Just now'}
+                            </span>
+                            {isAuthor && (
+                              <button
+                                onClick={() => handleDeleteComment(post._id, comment._id)}
+                                className="text-slate-400 hover:text-red-500 transition p-0.5"
+                                title="Delete comment"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-1 text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
+                          {comment.body}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <form onSubmit={(e) => handleCommentSubmit(e, post._id)} className="flex items-center gap-2">
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                {user?.name?.split(' ').map((x) => x[0]).join('').slice(0, 2) || 'ME'}
+              </div>
+              <input
+                type="text"
+                value={commentDrafts[post._id] || ''}
+                onChange={(e) => handleCommentChange(post._id, e.target.value)}
+                placeholder="Write a comment..."
+                className="field !py-2 !text-sm flex-1"
+                disabled={commentSubmitting[post._id]}
+              />
+              <button
+                type="submit"
+                disabled={!commentDrafts[post._id]?.trim() || commentSubmitting[post._id]}
+                className="btn-primary !px-3.5 !py-2 !text-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Send size={15} />
+                <span className="hidden sm:inline">Post</span>
+              </button>
+            </form>
+          </div>
+        )}
       </article>)}
     </div>
     <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">

@@ -2,6 +2,7 @@ const router = require('express').Router();
 const ctrl = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
+const { upload, handleUploadError } = require('../middleware/upload');
 const {
   registerSchema, loginSchema, googleAuthSchema, refreshSchema,
   forgotPasswordSchema, resetPasswordSchema, changePasswordSchema,
@@ -15,7 +16,8 @@ router.post('/logout', protect, ctrl.logout);
 router.post('/forgot-password', validate(forgotPasswordSchema), ctrl.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), ctrl.resetPassword);
 router.get('/me', protect, ctrl.getMe);
-router.patch('/me', protect, ctrl.updateMe);
+router.patch('/me', protect, upload.single('avatar'), handleUploadError, ctrl.updateMe);
+router.post('/avatar', protect, upload.single('avatar'), handleUploadError, ctrl.uploadAvatar);
 router.patch('/change-password', protect, validate(changePasswordSchema), ctrl.changePassword);
 
 module.exports = router;

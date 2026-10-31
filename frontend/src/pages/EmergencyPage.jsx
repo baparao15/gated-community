@@ -8,7 +8,7 @@ import api from '../services/api';
 import { showToast } from '../store/uiSlice';
 import { asList, unitLabel } from '../utils/apiData';
 
-const PHONE_REGEX = /^[0-9+\-\s()]{3,20}$/;
+const PHONE_REGEX = /^[0-9]{3,15}$/;
 const sosCategories = [
   ['medical', 'Medical'],
   ['fire', 'Fire'],
@@ -29,7 +29,7 @@ export default function EmergencyPage() {
   const alerts = asList(sosData);
 
   const [broadcast, setBroadcast] = useState('Medical emergency assistance required at the main gate.');
-  const [sosForm, setSosForm] = useState({ category: 'medical', message: '' });
+  const [sosForm, setSosForm] = useState({ category: 'medical', location: '', message: '' });
   const [confirmSos, setConfirmSos] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', phone: '', type: 'emergency' });
 
@@ -56,7 +56,7 @@ export default function EmergencyPage() {
       const { data: response } = await api.post('/sos', sosForm);
       setSos([response.data, ...alerts]);
       setConfirmSos(false);
-      setSosForm({ category: 'medical', message: '' });
+      setSosForm({ category: 'medical', location: '', message: '' });
       dispatch(showToast({ message: 'SOS sent. Security and admin have been alerted.', severity: 'error' }));
     } catch (err) {
       toastError(err, 'SOS could not be sent. Please call security directly.');
@@ -130,11 +130,17 @@ export default function EmergencyPage() {
                   </button>
                 ))}
               </div>
+              <input
+                className="mt-4 w-full rounded-2xl border border-white/20 bg-white/10 p-3.5 outline-none placeholder:text-red-200 text-white font-medium"
+                placeholder="Where is the issue? (e.g. Apt A-101, Lift, Clubhouse)"
+                value={sosForm.location || ''}
+                onChange={(event) => setSosForm({ ...sosForm, location: event.target.value })}
+              />
               <textarea
-                className="mt-4 w-full rounded-2xl border border-white/20 bg-white/10 p-4 outline-none placeholder:text-red-200"
+                className="mt-3 w-full rounded-2xl border border-white/20 bg-white/10 p-4 outline-none placeholder:text-red-200 text-white font-medium"
                 rows="3"
                 maxLength={500}
-                placeholder="Describe what's happening (optional)"
+                placeholder="Describe what's happening (e.g. Person unconscious, fire sparks)"
                 value={sosForm.message}
                 onChange={(event) => setSosForm({ ...sosForm, message: event.target.value })}
               />
@@ -215,7 +221,7 @@ export default function EmergencyPage() {
             <form onSubmit={addContact} className="mt-6 space-y-3 border-t border-slate-100 pt-5 dark:border-slate-800">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-brand-600">Add contact</h3>
               <input required className="field" placeholder="Name (e.g. Community medical room)" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} />
-              <input required className="field" inputMode="tel" maxLength={20} placeholder="Phone number" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value.replace(/[^0-9+\-\s()]/g, '') })} />
+              <input required className="field" inputMode="tel" maxLength={15} placeholder="Phone number" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })} />
               <button className="btn-primary w-full"><Plus size={17} /> Add emergency contact</button>
             </form>
           )}

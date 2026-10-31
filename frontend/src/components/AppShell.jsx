@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -7,8 +7,11 @@ import {
 } from 'lucide-react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
 import Brand from './Brand';
 import VoiceAssistant from './VoiceAssistant';
+import api from '../services/api';
 import { clearToast, setSidebar, showToast, toggleDark } from '../store/uiSlice';
 import { logout } from '../store/authSlice';
 import useApiData from '../hooks/useApiData';
@@ -115,6 +118,47 @@ export default function AppShell() {
   const mobileItems = mobileByRole[user?.role] || mobileByRole.Resident;
   const initials = user?.name?.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase();
 
+  const [sosModalOpen, setSosModalOpen] = useState(false);
+  const [sosCategory, setSosCategory] = useState('medical');
+  const [sosLocation, setSosLocation] = useState('');
+  const [sosMessage, setSosMessage] = useState('');
+  const [sosSubmitting, setSosSubmitting] = useState(false);
+
+  const handleOpenSos = () => {
+    setSosCategory('medical');
+    setSosLocation('');
+    setSosMessage('');
+    setSosModalOpen(true);
+  };
+
+  const handleSendSos = async (e) => {
+    e.preventDefault();
+    if (!sosLocation.trim()) {
+      dispatch(showToast({ message: 'Please specify where the issue is located', severity: 'error' }));
+      return;
+    }
+    if (!sosMessage.trim()) {
+      dispatch(showToast({ message: 'Please describe the emergency issue', severity: 'error' }));
+      return;
+    }
+    setSosSubmitting(true);
+    try {
+      await api.post('/sos', {
+        category: sosCategory,
+        location: sosLocation.trim(),
+        message: `[Location: ${sosLocation.trim()}] ${sosMessage.trim()}`,
+      });
+      setSosModalOpen(false);
+      setSosLocation('');
+      setSosMessage('');
+      dispatch(showToast({ message: '🚨 SOS Alert sent! Security desk and admin team have been notified.', severity: 'error' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not send SOS alert. Please call security directly.', severity: 'error' }));
+    } finally {
+      setSosSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-canvas dark:bg-earth-900">
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-earth-300/70 bg-canvas/95 p-5 transition-transform dark:border-earth-700 dark:bg-earth-900 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -124,7 +168,13 @@ export default function AppShell() {
         </div>
         <div className="mt-8 shrink-0 rounded-2xl bg-white/80 p-4 text-earth-900 shadow-card ring-1 ring-earth-300/70 dark:bg-earth-800 dark:text-earth-50">
           <div className="flex items-center gap-3">
-            <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full font-display font-bold ring-2 ring-white ${isSuperAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-brand-100 text-brand-600'}`}>{initials || '?'}</div>
+            <div className={`grid h-12 w-12 shrink-0 overflow-hidden place-items-center rounded-full font-display font-bold ring-2 ring-white ${isSuperAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-brand-100 text-brand-600'}`}>
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user?.name} className="h-full w-full object-cover" />
+              ) : (
+                initials || '?'
+              )}
+            </div>
             <div className="min-w-0">
               <div className="font-bold leading-tight" title={user?.name}>{user?.name}</div>
               <div className="text-xs text-earth-500">{roleLabel} workspace</div>
@@ -169,9 +219,13 @@ export default function AppShell() {
               to="/app/profile"
               title="My profile"
               aria-label="My profile"
-              className={({ isActive }) => `grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold ring-1 transition ${isActive ? 'bg-brand-600 text-white ring-brand-600' : 'bg-brand-100 text-brand-700 ring-earth-300 hover:bg-brand-200 dark:bg-earth-800 dark:text-brand-100 dark:ring-earth-700'}`}
+              className={({ isActive }) => `grid h-10 w-10 shrink-0 overflow-hidden place-items-center rounded-full text-sm font-bold ring-1 transition ${isActive ? 'bg-brand-600 text-white ring-brand-600' : 'bg-brand-100 text-brand-700 ring-earth-300 hover:bg-brand-200 dark:bg-earth-800 dark:text-brand-100 dark:ring-earth-700'}`}
             >
-              {initials || <UserRound size={19} />}
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user?.name} className="h-full w-full object-cover" />
+              ) : (
+                initials || <UserRound size={19} />
+              )}
             </NavLink>
           </div>
         </header>
@@ -211,15 +265,127 @@ export default function AppShell() {
         </div>
       </nav>
       {user?.role === 'Resident' && (
-        <NavLink
-          to="/app/emergency"
-          title="SOS Emergency"
-          aria-label="SOS Emergency"
-          className="fixed bottom-36 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl shadow-red-600/40 transition active:scale-90 hover:bg-red-700 md:bottom-28 md:right-5"
+        <button
+          type="button"
+          onClick={handleOpenSos}
+          title="Trigger Emergency SOS"
+          aria-label="Trigger Emergency SOS"
+          className="fixed bottom-36 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl shadow-red-600/40 transition active:scale-90 hover:bg-red-700 md:bottom-28 md:right-5 cursor-pointer"
         >
           <Siren size={22} className="animate-pulse" />
-        </NavLink>
+        </button>
       )}
+
+      {/* Emergency SOS Pop-up Modal */}
+      <Dialog
+        open={sosModalOpen}
+        onClose={() => !sosSubmitting && setSosModalOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          className: '!rounded-2xl dark:!bg-earth-900 dark:!text-earth-50 !bg-white !text-earth-900 !border !border-red-200 dark:!border-red-900/60 !shadow-2xl overflow-hidden',
+        }}
+      >
+        <div className="bg-gradient-to-r from-red-600 to-rose-700 p-5 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <Siren size={22} className="animate-bounce" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-extrabold leading-tight">Emergency SOS Alert</h2>
+                <p className="text-xs text-red-100">Broadcasts instant alert to security & admin</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSosModalOpen(false)}
+              disabled={sosSubmitting}
+              className="rounded-full p-1 text-white/80 hover:bg-white/20 hover:text-white transition"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        <DialogContent className="!p-6">
+          <form onSubmit={handleSendSos} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-earth-600 dark:text-earth-300">
+                Emergency Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'medical', label: '🏥 Medical' },
+                  { id: 'fire', label: '🔥 Fire' },
+                  { id: 'security', label: '🛡️ Security' },
+                  { id: 'other', label: '⚠️ Other' },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setSosCategory(id)}
+                    className={`rounded-xl border py-2 text-xs font-bold transition ${
+                      sosCategory === id
+                        ? 'border-red-500 bg-red-50 text-red-700 dark:border-red-600 dark:bg-red-950/50 dark:text-red-300'
+                        : 'border-earth-200 text-earth-700 hover:border-earth-300 dark:border-earth-700 dark:text-earth-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-earth-600 dark:text-earth-300">
+                Where is the issue? (Location / Apartment) <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                className="field"
+                placeholder="e.g. Apt A-101, Block B Elevator, Clubhouse"
+                value={sosLocation}
+                onChange={(e) => setSosLocation(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-earth-600 dark:text-earth-300">
+                What is the issue? (Details) <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                required
+                rows={3}
+                className="field"
+                placeholder="Describe what happened, any immediate dangers or assistance required..."
+                value={sosMessage}
+                onChange={(e) => setSosMessage(e.target.value)}
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={sosSubmitting}
+                onClick={() => setSosModalOpen(false)}
+                className="btn-secondary !py-2.5 !px-4 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={sosSubmitting}
+                className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-red-600/30 transition hover:bg-red-700 active:scale-95 disabled:opacity-50 inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Siren size={16} /> {sosSubmitting ? 'Sending Alert…' : 'Send SOS Alert'}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Snackbar open={!!toast} autoHideDuration={3500} onClose={() => dispatch(clearToast())}><Alert variant="filled" severity={toast?.severity || 'success'}>{toast?.message}</Alert></Snackbar>
     </div>
   );

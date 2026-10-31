@@ -37,6 +37,10 @@ const authSlice = createSlice({
       localStorage.setItem('refresh_token', refreshToken);
       localStorage.setItem('community_user', JSON.stringify(user));
     },
+    updateUser(state, action) {
+      state.user = { ...(state.user || {}), ...action.payload };
+      localStorage.setItem('community_user', JSON.stringify(state.user));
+    },
   },
   extraReducers: (builder) => builder
     .addCase(login.pending, (state) => { state.loading = true; state.error = null; })
@@ -51,5 +55,5 @@ const authSlice = createSlice({
     .addCase(login.rejected, (state, action) => { state.loading = false; state.error = action.payload; }),
 });
 
-export const { logout, setCredentials } = authSlice.actions;
+export const { logout, setCredentials, updateUser } = authSlice.actions;
 export default authSlice.reducer;

@@ -53,7 +53,7 @@ export default function Brand({ compact = false, light = false, size = 'default'
             Panchayat
           </div>
           <div
-            className={`mt-1 ${subSize} font-bold uppercase tracking-[.18em] leading-none whitespace-nowrap ${
+            className={`mt-1 ${isSm ? 'hidden min-[360px]:block ' : ''}${subSize} font-bold uppercase tracking-[.18em] leading-none whitespace-nowrap ${
               light ? 'text-brand-100' : 'text-earth-500'
             }`}
           >

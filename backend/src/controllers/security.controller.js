@@ -159,21 +159,23 @@ const deleteEmergencyContact = async (req, res) => {
 // A resident raises an SOS; guards and admins are notified straight away with the
 // resident's name, unit and phone so they can respond without a callback.
 const triggerSos = async (req, res) => {
-  const { category = 'other', message } = req.body;
+  const { category = 'other', message, location } = req.body;
   const profile = await ResidentProfile.findOne({ user: req.user._id }).populate('unit', 'blockName unitNumber');
   const me = await User.findById(req.user._id).select('name phone');
+
+  const loc = location || (profile?.unit ? `${profile.unit.blockName}-${profile.unit.unitNumber}` : 'Community');
+  const fullMessage = message ? String(message).slice(0, 500) : (location ? `Location: ${location}` : undefined);
 
   const alert = await SosAlert.create({
     user: req.user._id,
     unit: profile?.unit?._id,
     phone: me?.phone,
     category: ['medical', 'fire', 'security', 'other'].includes(category) ? category : 'other',
-    message: message ? String(message).slice(0, 500) : undefined,
+    message: fullMessage,
   });
 
-  const unitLabel = profile?.unit ? `${profile.unit.blockName}-${profile.unit.unitNumber}` : 'unit not linked';
-  const title = `SOS from ${me?.name || req.user.name} (${unitLabel})`;
-  const body = `${alert.category.toUpperCase()} emergency${message ? `: ${message}` : ''}${me?.phone ? ` · Call ${me.phone}` : ''}`;
+  const title = `SOS from ${me?.name || req.user.name} (${loc})`;
+  const body = `${alert.category.toUpperCase()} emergency at ${loc}${message ? `: ${message}` : ''}${me?.phone ? ` · Call ${me.phone}` : ''}`;
 
   const responders = await User.find({ role: { $in: ['Guard', 'Admin', 'SuperAdmin'] }, status: 'active', isDeleted: false }).select('_id');
   if (responders.length) {

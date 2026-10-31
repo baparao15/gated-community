@@ -798,15 +798,70 @@ export default function MarketplacePage() {
           <div className="p-7">
             <div className="eyebrow">Place an order</div>
             <h2 className="mt-2 font-display text-2xl font-extrabold">{orderTarget?.title}</h2>
-            <p className="mt-1 text-sm text-slate-500">{currency(orderTarget?.price || 0)} · {orderTarget?.business?.name} · Apt {orderTarget?.business?.apartment}</p>
-            <form onSubmit={submitOrder} className="mt-6 space-y-4">
-              <label><span className="mb-2 block text-sm font-bold">Quantity</span><input className="field" type="number" min="1" max="99" required value={orderForm.quantity} onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })} /></label>
-              <label><span className="mb-2 block text-sm font-bold">Note to seller (optional)</span><textarea className="field" rows="3" value={orderForm.note} onChange={(e) => setOrderForm({ ...orderForm, note: e.target.value })} placeholder="Pickup time, preferences, etc." /></label>
-              <div className="flex items-center justify-between rounded-xl bg-earth-50 px-4 py-3 text-sm font-bold dark:bg-earth-800/50">
-                <span>Total</span>
-                <span className="text-brand-600">{currency((orderTarget?.price || 0) * (Number(orderForm.quantity) || 1))}</span>
+            
+            {/* Price and seller unit info */}
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-earth-100/70 p-3.5 dark:bg-earth-800/60">
+              <div>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-earth-500 dark:text-earth-400">Unit Price</span>
+                <span className="font-display text-xl font-extrabold text-brand-600 dark:text-brand-400">
+                  {currency(orderTarget?.price || 0)}
+                </span>
               </div>
-              <button className="btn-primary w-full"><CheckCircle2 size={16} /> Confirm order</button>
+              <div className="text-right text-xs">
+                <span className="block font-bold text-ink dark:text-earth-100">{orderTarget?.business?.name || 'Seller'}</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  {orderTarget?.business?.apartment ? (orderTarget.business.apartment.toLowerCase().startsWith('apt') ? orderTarget.business.apartment : `Apt ${orderTarget.business.apartment}`) : 'Community Apt'}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={submitOrder} className="mt-5 space-y-4">
+              <label>
+                <span className="mb-2 block text-sm font-bold">Quantity</span>
+                <input
+                  className="field"
+                  type="number"
+                  min="1"
+                  max="99"
+                  required
+                  value={orderForm.quantity}
+                  onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold">Note to seller (optional)</span>
+                <textarea
+                  className="field"
+                  rows="2"
+                  value={orderForm.note}
+                  onChange={(e) => setOrderForm({ ...orderForm, note: e.target.value })}
+                  placeholder="Pickup time, preferences, etc."
+                />
+              </label>
+
+              {/* Total calculation & breakdown */}
+              <div className="space-y-1.5 rounded-xl border border-earth-200/80 bg-earth-50 p-3.5 text-sm dark:border-earth-700/60 dark:bg-earth-800/50">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Subtotal ({orderForm.quantity || 1} × {currency(orderTarget?.price || 0)})</span>
+                  <span>{currency((orderTarget?.price || 0) * (Number(orderForm.quantity) || 1))}</span>
+                </div>
+                <div className="border-t border-earth-200/60 pt-2 flex items-center justify-between font-bold dark:border-earth-700/60">
+                  <span className="text-sm text-ink dark:text-earth-100">Total</span>
+                  <span className="font-display text-lg font-black text-brand-600 dark:text-brand-400">
+                    {currency((orderTarget?.price || 0) * (Number(orderForm.quantity) || 1))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Notice before order */}
+              <div className="flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <MapPin size={17} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Pay at pickup from {orderTarget?.business?.apartment ? (orderTarget.business.apartment.toLowerCase().startsWith('apt') ? orderTarget.business.apartment : `Apt ${orderTarget.business.apartment}`) : 'seller apartment'}</span>
+              </div>
+
+              <button className="btn-primary w-full shadow-lg shadow-brand-600/20">
+                <CheckCircle2 size={16} /> Confirm order
+              </button>
             </form>
           </div>
         </DialogContent>

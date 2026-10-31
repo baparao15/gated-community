@@ -182,12 +182,12 @@ const updateMyProfile = async (req, res) => {
 
   // Allow updating own name/phone on User
   const { name, phone } = req.body;
-  const PHONE_REGEX = /^[0-9+\-\s()]{7,20}$/;
+  const PHONE_REGEX = /^[0-9]{7,15}$/;
   if (phone && !PHONE_REGEX.test(String(phone).trim())) {
-    return sendError(res, 'Enter a valid phone number', null, 400);
+    return sendError(res, 'Enter a valid phone number (digits only, 7–15 digits)', null, 400);
   }
   if (emergencyContact?.phone && !PHONE_REGEX.test(String(emergencyContact.phone).trim())) {
-    return sendError(res, 'Enter a valid emergency contact phone number', null, 400);
+    return sendError(res, 'Enter a valid emergency contact phone number (digits only, 7–15 digits)', null, 400);
   }
   if (name || phone) {
     await User.findByIdAndUpdate(req.user._id, { ...(name && { name }), ...(phone && { phone }) });

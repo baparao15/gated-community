@@ -200,19 +200,28 @@ const getMe = async (req, res) => {
 };
 
 const updateMe = async (req, res) => {
-  const { name, phone, avatar } = req.body;
+  const { name, phone } = req.body;
+  const avatar = req.file ? req.file.path : req.body.avatar;
   const update = {};
   if (name !== undefined) update.name = name;
   if (phone !== undefined) update.phone = phone;
   if (avatar !== undefined) update.avatar = avatar;
 
   if (!Object.keys(update).length) return sendError(res, 'No profile fields provided', null, 400);
-  if (update.phone && !/^[0-9+\-\s()]{7,20}$/.test(String(update.phone).trim())) {
-    return sendError(res, 'Enter a valid phone number', null, 400);
+  if (update.phone && !/^[0-9]{7,15}$/.test(String(update.phone).trim())) {
+    return sendError(res, 'Enter a valid phone number (digits only, 7–15 digits)', null, 400);
   }
 
   const user = await User.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
   return sendSuccess(res, 'Profile updated', user);
+};
+
+const uploadAvatar = async (req, res) => {
+  const avatar = req.file ? req.file.path : req.body.avatar;
+  if (!avatar) return sendError(res, 'No avatar image file or data provided', null, 400);
+
+  const user = await User.findByIdAndUpdate(req.user._id, { avatar }, { new: true });
+  return sendSuccess(res, 'Profile photo updated', user);
 };
 
 const changePassword = async (req, res) => {
@@ -229,4 +238,4 @@ const changePassword = async (req, res) => {
   return sendSuccess(res, 'Password changed successfully');
 };
 
-module.exports = { register, login, googleAuth, refresh, logout, forgotPassword, resetPassword, getMe, updateMe, changePassword };
+module.exports = { register, login, googleAuth, refresh, logout, forgotPassword, resetPassword, getMe, updateMe, uploadAvatar, changePassword };

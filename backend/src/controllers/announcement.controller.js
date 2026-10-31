@@ -111,8 +111,8 @@ const listPosts = async (req, res) => {
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const [posts, total] = await Promise.all([
     ForumPost.find(filter)
-      .select('-comments')
-      .populate('author', 'name')
+      .populate('author', 'name role')
+      .populate('comments.author', 'name role')
       .skip(skip).limit(parseInt(limit)).sort({ isPinned: -1, createdAt: -1 }),
     ForumPost.countDocuments(filter),
   ]);
@@ -126,18 +126,47 @@ const createPost = async (req, res) => {
   const { title, body, category } = req.body;
   const images = req.files ? req.files.map((f) => f.path) : [];
   const post = await ForumPost.create({ title, body, category, author: req.user._id, images });
+  await post.populate('author', 'name role');
   return sendSuccess(res, 'Post created', post, 201);
+};
+
+const getPostComments = async (req, res) => {
+  const post = await ForumPost.findById(req.params.id).populate('comments.author', 'name role');
+  if (!post) return sendError(res, 'Post not found', null, 404);
+  return sendSuccess(res, 'Comments fetched', post.comments || []);
 };
 
 const addComment = async (req, res) => {
   const { body } = req.body;
+  if (!body || !body.trim()) {
+    return sendError(res, 'Comment text is required', null, 400);
+  }
   const post = await ForumPost.findByIdAndUpdate(
     req.params.id,
-    { $push: { comments: { author: req.user._id, body } } },
+    { $push: { comments: { author: req.user._id, body: body.trim() } } },
     { new: true }
-  ).populate('comments.author', 'name');
+  ).populate('comments.author', 'name role');
   if (!post) return sendError(res, 'Post not found', null, 404);
   return sendSuccess(res, 'Comment added', post.comments.at(-1), 201);
+};
+
+const deleteComment = async (req, res) => {
+  const { id, commentId } = req.params;
+  const post = await ForumPost.findById(id);
+  if (!post) return sendError(res, 'Post not found', null, 404);
+
+  const comment = post.comments.id(commentId);
+  if (!comment) return sendError(res, 'Comment not found', null, 404);
+
+  const isAuthor = comment.author?.toString() === req.user._id.toString();
+  const isAdmin = ['Admin', 'SuperAdmin'].includes(req.user.role);
+  if (!isAuthor && !isAdmin) {
+    return sendError(res, 'Not authorized to delete this comment', null, 403);
+  }
+
+  post.comments.pull({ _id: commentId });
+  await post.save();
+  return sendSuccess(res, 'Comment deleted', { commentId });
 };
 
 const likePost = async (req, res) => {
@@ -160,5 +189,5 @@ const likePost = async (req, res) => {
 module.exports = {
   createAnnouncement, listAnnouncements, getAnnouncementById, updateAnnouncement, deleteAnnouncement,
   triggerEmergency,
-  listPosts, createPost, addComment, likePost,
+  listPosts, createPost, getPostComments, addComment, deleteComment, likePost,
 };

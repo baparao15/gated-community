@@ -58,5 +58,47 @@ button, input, textarea, select { font: inherit; }
 .voice-bubble::after { content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid theme(colors.earth.900); }
 .voice-bubble-dot { @apply mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500; }
 .status-dot { @apply inline-block h-2 w-2 rounded-full; }
+/* Responsive media handling - strictly prevent images, canvas, and video from overflowing on any device or laptop */
+img, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Ensure modal dialogs fit perfectly on small mobiles and small laptops without overflow */
+.MuiDialog-paper {
+  margin: 12px !important;
+  max-width: calc(100vw - 24px) !important;
+  width: 100% !important;
+  max-height: calc(100dvh - 24px) !important;
+  overflow-y: auto !important;
+}
+@media (min-width: 640px) {
+  .MuiDialog-paper {
+    margin: 32px auto !important;
+    max-width: 36rem !important; /* sm dialog default */
+  }
+}
+@media (min-width: 1024px) {
+  .MuiDialog-paper.MuiDialog-paperWidthMd {
+    max-width: 48rem !important;
+  }
+  .MuiDialog-paper.MuiDialog-paperWidthLg {
+    max-width: 64rem !important;
+  }
+}
+
+/* Safe image containers inside modals and cards */
+.responsive-img-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.responsive-img-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #dcc1ba; border-radius: 999px; }
+
