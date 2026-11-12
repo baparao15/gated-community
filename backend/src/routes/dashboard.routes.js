@@ -14,5 +14,9 @@ router.get('/dashboard/bookings', protect, authorize('Admin', 'SuperAdmin'), ctr
 router.get('/notifications', protect, ctrl.listNotifications);
 router.patch('/notifications/read-all', protect, ctrl.markAllRead);
 router.patch('/notifications/:id/read', protect, ctrl.markNotificationRead);
+router.patch('/notifications/:id/react', protect, ctrl.reactNotification);
+router.patch('/notifications/:id/dismiss', protect, ctrl.dismissNotification);
+router.delete('/notifications/:id', protect, ctrl.deleteNotification);
+router.delete('/notifications', protect, ctrl.clearNotifications);
 
 module.exports = router;

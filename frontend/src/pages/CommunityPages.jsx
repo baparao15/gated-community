@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import { QRCodeSVG } from 'qrcode.react';
-import { Bell, Car, CheckCheck, Heart, MessageCircle, Plus, Search, Send, Share2, Trash2 } from 'lucide-react';
+import { Bell, Car, Check, CheckCheck, Clock, EyeOff, Heart, MessageCircle, Plus, Search, Send, Share2, ThumbsUp, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import useApiData from '../hooks/useApiData';
@@ -344,13 +344,32 @@ export function NotificationsPage() {
   const [filter, setFilter] = useState('all');
   const dispatch = useDispatch();
 
+  // Notifications automatically disappear after fixed deadline (expiresAt or 30 days) or if ignored/dismissed
+  const activeList = list.filter((n) => {
+    if (n.isDismissed) return false;
+    if (n.expiresAt && new Date(n.expiresAt).getTime() <= Date.now()) return false;
+    return true;
+  });
+
   const markAll = async () => {
     try {
       await api.patch('/notifications/read-all');
       setData(list.map((notification) => ({ ...notification, isRead: true })));
       window.dispatchEvent(new Event('notifications:changed'));
+      dispatch(showToast({ message: 'All notifications marked as read' }));
     } catch (err) {
       dispatch(showToast({ message: err.response?.data?.message || 'Notifications could not be updated', severity: 'error' }));
+    }
+  };
+
+  const clearRead = async () => {
+    try {
+      await api.delete('/notifications');
+      setData(list.filter((n) => !n.isRead && !n.isDismissed));
+      window.dispatchEvent(new Event('notifications:changed'));
+      dispatch(showToast({ message: 'Read notifications cleared' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not clear notifications', severity: 'error' }));
     }
   };
 
@@ -361,27 +380,193 @@ export function NotificationsPage() {
       setData(list.map((item) => (item._id === notification._id ? response.data : item)));
       window.dispatchEvent(new Event('notifications:changed'));
     } catch (err) {
-      dispatch(showToast({ message: err.response?.data?.message || 'Notification could not be opened', severity: 'error' }));
+      dispatch(showToast({ message: err.response?.data?.message || 'Notification could not be updated', severity: 'error' }));
     }
   };
 
-  const visible = filter === 'all' ? list : list.filter((notification) => notification.type.includes(filter));
+  const removeNotification = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/notifications/${id}`);
+      setData(list.filter((item) => item._id !== id));
+      window.dispatchEvent(new Event('notifications:changed'));
+      dispatch(showToast({ message: 'Notification removed' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not remove notification', severity: 'error' }));
+    }
+  };
+
+  const ignoreNotification = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.patch(`/notifications/${id}/dismiss`);
+      setData(list.map((item) => (item._id === id ? { ...item, isDismissed: true } : item)));
+      window.dispatchEvent(new Event('notifications:changed'));
+      dispatch(showToast({ message: 'Notification ignored and removed from feed' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not ignore notification', severity: 'error' }));
+    }
+  };
+
+  const reactNotification = async (e, id, reaction = 'acknowledged') => {
+    e.stopPropagation();
+    try {
+      const { data: response } = await api.patch(`/notifications/${id}/react`, { reaction });
+      setData(list.map((item) => (item._id === id ? response.data : item)));
+      window.dispatchEvent(new Event('notifications:changed'));
+      dispatch(showToast({ message: 'Reaction saved: Acknowledged' }));
+    } catch (err) {
+      dispatch(showToast({ message: err.response?.data?.message || 'Could not save reaction', severity: 'error' }));
+    }
+  };
+
+  const visible = filter === 'all'
+    ? activeList
+    : activeList.filter((notification) => notification.type?.toLowerCase().includes(filter.toLowerCase()));
 
   return <>
-    <PageHeader eyebrow="Your updates" title="Notification center" description="Arrivals, approvals, service updates and payment reminders - all in one calm feed." action={<button onClick={markAll} className="btn-secondary"><CheckCheck size={18} /> Mark all read</button>} />
-    <div className="mb-6 flex gap-2 overflow-x-auto pb-1">{['all', 'visitor', 'complaint', 'booking', 'invoice'].map((item) => <button key={item} onClick={() => setFilter(item)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition ${filter === item ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:text-brand-600 dark:bg-earth-800 dark:text-slate-300 dark:hover:text-white'}`}>{item}</button>)}</div>
-    <section className="card overflow-hidden">
-      {visible.map((notification) => <button key={notification._id} onClick={() => markOne(notification)} className={`flex w-full gap-4 border-b border-slate-100 p-5 text-left last:border-0 dark:border-slate-800 ${!notification.isRead ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
-        <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${!notification.isRead ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}><Bell size={19} /></div>
-        <div className="flex-1">
-          <div className="flex justify-between gap-3">
-            <div className="font-bold">{notification.title}</div>
-            <div className="text-xs text-slate-400">{new Date(notification.createdAt).toLocaleDateString('en-IN')}</div>
-          </div>
-          <div className="mt-1 text-sm text-slate-500">{notification.message}</div>
+    <PageHeader
+      eyebrow="Your updates"
+      title="Notification center"
+      description="Arrivals, approvals, service updates and payment reminders - all in one calm feed."
+      action={
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={clearRead} className="btn-secondary text-xs sm:text-sm">
+            <Trash2 size={16} /> Clear read
+          </button>
+          <button onClick={markAll} className="btn-primary text-xs sm:text-sm">
+            <CheckCheck size={18} /> Mark all read
+          </button>
         </div>
-        {!notification.isRead && <span className="mt-2 h-2 w-2 rounded-full bg-brand-600" />}
-      </button>)}
-    </section>
+      }
+    />
+    <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+      {['all', 'visitor', 'complaint', 'booking', 'invoice', 'emergency'].map((item) => (
+        <button
+          key={item}
+          onClick={() => setFilter(item)}
+          className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize transition ${
+            filter === item
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:text-brand-600 dark:bg-earth-800 dark:text-slate-300 dark:hover:text-white'
+          }`}
+        >
+          {item}
+        </button>
+      ))}
+    </div>
+
+    {visible.length === 0 ? (
+      <div className="card p-12 text-center text-earth-500">
+        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-earth-100 text-earth-400 dark:bg-earth-800">
+          <Bell size={24} />
+        </div>
+        <div className="font-bold text-ink dark:text-earth-100">No active notifications</div>
+        <p className="mt-1 text-xs text-slate-400">
+          All caught up! Notifications disappear after their fixed deadline or when removed/ignored.
+        </p>
+      </div>
+    ) : (
+      <section className="card overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+        {visible.map((notification) => {
+          const isEmergency = notification.type === 'emergency' || notification.title?.toLowerCase().includes('sos');
+          return (
+            <div
+              key={notification._id}
+              className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 transition ${
+                !notification.isRead ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'hover:bg-slate-50/60 dark:hover:bg-earth-800/40'
+              }`}
+            >
+              <div
+                className="flex items-start gap-4 flex-1 cursor-pointer"
+                onClick={() => markOne(notification)}
+              >
+                <div
+                  className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${
+                    isEmergency
+                      ? 'bg-red-600 text-white animate-pulse'
+                      : !notification.isRead
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                  }`}
+                >
+                  <Bell size={19} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold text-sm ${!notification.isRead ? 'text-ink dark:text-white font-extrabold' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {notification.title}
+                      </span>
+                      {!notification.isRead && (
+                        <span className="h-2 w-2 rounded-full bg-brand-600 shrink-0" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      {notification.expiresAt && (
+                        <span className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                          <Clock size={11} /> Until {new Date(notification.expiresAt).toLocaleDateString('en-IN')}
+                        </span>
+                      )}
+                      <span>{new Date(notification.createdAt).toLocaleDateString('en-IN')}</span>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-relaxed break-words">
+                    {notification.message}
+                  </div>
+                  {notification.reaction && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 dark:bg-brand-950/50 px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300">
+                      <ThumbsUp size={11} /> {notification.reaction}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons: Read, React, Ignore, Remove */}
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0">
+                {!notification.isRead && (
+                  <button
+                    onClick={() => markOne(notification)}
+                    title="Mark as read"
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-earth-800 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-brand-600 hover:text-brand-600 transition"
+                  >
+                    <Check size={13} /> Read
+                  </button>
+                )}
+
+                <button
+                  onClick={(e) => reactNotification(e, notification._id, notification.reaction ? 'acknowledged' : 'acknowledged')}
+                  title="Acknowledge or react to this notification"
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                    notification.reaction
+                      ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-earth-800 text-slate-600 dark:text-slate-300 hover:border-brand-600 hover:text-brand-600'
+                  }`}
+                >
+                  <ThumbsUp size={13} /> {notification.reaction ? 'Reacted' : 'React'}
+                </button>
+
+                <button
+                  onClick={(e) => ignoreNotification(e, notification._id)}
+                  title="Ignore / Dismiss from feed"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-earth-800 px-2.5 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:border-amber-500 hover:text-amber-600 transition"
+                >
+                  <EyeOff size={13} /> Ignore
+                </button>
+
+                <button
+                  onClick={(e) => removeNotification(e, notification._id)}
+                  title="Remove notification"
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-earth-800 p-1.5 text-slate-400 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 transition"
+                  aria-label="Remove notification"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+    )}
   </>;
 }

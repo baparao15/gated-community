@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
-import { AlertTriangle, CalendarDays, Droplets, Megaphone, Pin, Plus, Sprout, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, Droplets, Megaphone, Pin, Plus, Sprout, X } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import useApiData from '../hooks/useApiData';
 import api from '../services/api';
@@ -39,24 +39,74 @@ const isEventPast = (notice) => {
   return evtDate.getTime() < Date.now();
 };
 
+const isDeadlinePassed = (notice) => {
+  if (!notice) return false;
+  if (notice.expiresAt) {
+    const exp = new Date(notice.expiresAt);
+    if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) return true;
+  }
+  if (notice.eventDate) {
+    const evtDate = new Date(notice.eventDate);
+    if (!isNaN(evtDate.getTime())) {
+      const hasTime = typeof notice.eventDate === 'string' && (notice.eventDate.includes('T') || notice.eventDate.includes(':'));
+      if (!hasTime) {
+        evtDate.setHours(23, 59, 59, 999);
+      }
+      if (evtDate.getTime() < Date.now()) return true;
+    }
+  }
+  if (notice.type === 'event' && isEventPast(notice)) return true;
+  return false;
+};
+
 export default function NoticesPage() {
-  const role = useSelector((s) => s.auth.user?.role);
+  const user = useSelector((s) => s.auth.user);
+  const role = user?.role;
   const isAdmin = ['Admin', 'SuperAdmin'].includes(role);
   const { data, setData } = useApiData('/announcements', []);
   const notices = asList(data);
   const [open, setOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [form, setForm] = useState({ title: '', body: '', type: 'notice', audience: 'all', eventDate: '', isPinned: false });
+  const [form, setForm] = useState({ title: '', body: '', type: 'notice', audience: 'all', eventDate: '', expiresAt: '', isPinned: false });
+  const [savedReminders, setSavedReminders] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`notice_reminders_${user?._id || 'guest'}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const dispatch = useDispatch();
+
+  const handleSaveReminder = (notice) => {
+    if (isDeadlinePassed(notice)) {
+      dispatch(showToast({ message: 'The deadline for this notice has already passed', severity: 'warning' }));
+      return;
+    }
+    const next = [...new Set([...savedReminders, notice._id])];
+    setSavedReminders(next);
+    try {
+      localStorage.setItem(`notice_reminders_${user?._id || 'guest'}`, JSON.stringify(next));
+    } catch {}
+    dispatch(showToast({ message: 'Reminder saved for this notice' }));
+  };
 
   const create = async (event) => {
     event.preventDefault();
     try {
-      const { data: response } = await api.post('/announcements', form);
+      const payload = {
+        title: form.title,
+        body: form.body,
+        type: form.type,
+        audience: form.audience,
+        isPinned: form.isPinned,
+        ...(form.eventDate && { eventDate: form.eventDate, expiresAt: form.eventDate }),
+      };
+      const { data: response } = await api.post('/announcements', payload);
       setData([response.data, ...notices]);
       setOpen(false);
-      setForm({ title: '', body: '', type: 'notice', audience: 'all', eventDate: '', isPinned: false });
+      setForm({ title: '', body: '', type: 'notice', audience: 'all', eventDate: '', expiresAt: '', isPinned: false });
       dispatch(showToast({ message: 'Announcement published' }));
     } catch (err) {
       dispatch(showToast({ message: err.response?.data?.message || 'Announcement could not be published', severity: 'error' }));
@@ -135,8 +185,20 @@ export default function NoticesPage() {
       <h2 className="mt-4 font-display text-2xl font-extrabold text-ink dark:text-white">{featured.title}</h2>
       <p className="mt-3 max-w-3xl leading-7 text-earth-700 dark:text-earth-200">{featured.body}</p>
       <div className="mt-5 flex flex-wrap gap-3">
-        {!isEventPast(featured) && (
-          <button onClick={() => dispatch(showToast({ message: 'Reminder saved for this notice' }))} className="btn-primary !py-2">Remind me</button>
+        {!isDeadlinePassed(featured) ? (
+          savedReminders.includes(featured._id) ? (
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 size={15} /> Reminder active
+            </span>
+          ) : (
+            <button onClick={() => handleSaveReminder(featured)} className="btn-primary !py-2 flex items-center gap-1.5">
+              <CalendarDays size={16} /> Remind me
+            </button>
+          )
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 dark:bg-earth-800 px-3.5 py-2 text-xs font-bold text-slate-500">
+            Deadline completed
+          </span>
         )}
         <button onClick={() => setSelectedNotice(featured)} className="btn-secondary !py-2">Read more / Details</button>
       </div>
@@ -259,14 +321,24 @@ export default function NoticesPage() {
             </div>
 
             <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-              <button
-                onClick={() => {
-                  dispatch(showToast({ message: 'Reminder saved for this notice' }));
-                }}
-                className="btn-primary !py-2 flex items-center gap-1.5"
-              >
-                <CalendarDays size={16} /> Remind me
-              </button>
+              {!isDeadlinePassed(selectedNotice) ? (
+                savedReminders.includes(selectedNotice._id) ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 size={15} /> Reminder saved
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSaveReminder(selectedNotice)}
+                    className="btn-primary !py-2 flex items-center gap-1.5"
+                  >
+                    <CalendarDays size={16} /> Remind me
+                  </button>
+                )
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 dark:bg-earth-800 px-3.5 py-2 text-xs font-bold text-slate-500">
+                  Deadline completed
+                </span>
+              )}
               <button
                 onClick={() => setSelectedNotice(null)}
                 className="btn-secondary !py-2"
@@ -297,6 +369,7 @@ export default function NoticesPage() {
             <label><span className="mb-2 block text-sm font-bold">Type</span><select className="field" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><option>notice</option><option>event</option><option>emergency</option></select></label>
             <label><span className="mb-2 block text-sm font-bold">Audience</span><select className="field" value={form.audience} onChange={(event) => setForm({ ...form, audience: event.target.value })}><option value="all">Everyone</option><option value="residents">Residents</option><option value="staff">Staff</option><option value="guards">Security</option></select></label>
           </div>
+          <label><span className="mb-2 block text-sm font-bold">Event date / Deadline (optional)</span><input type="datetime-local" className="field" value={form.eventDate} onChange={(event) => setForm({ ...form, eventDate: event.target.value, expiresAt: event.target.value })} /></label>
           <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={form.isPinned} onChange={(event) => setForm({ ...form, isPinned: event.target.checked })} /> Pin this notice</label>
           <button className="btn-primary w-full">Publish announcement</button>
         </form>

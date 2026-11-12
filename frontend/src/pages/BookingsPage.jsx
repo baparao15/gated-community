@@ -12,6 +12,22 @@ import { showToast } from '../store/uiSlice';
 import { asList } from '../utils/apiData';
 
 const facilityColors=['from-blue-600 to-indigo-700','from-emerald-600 to-teal-700','from-orange-500 to-rose-600'];
+const getFacilityImage = (facility) => {
+  if (facility?.images?.length) return facility.images[0];
+  const name = facility?.name?.toLowerCase() || '';
+  if (name.includes('badminton') || name.includes('court')) return '/facilities/badminton_court.jpg';
+  if (name.includes('gym') || name.includes('fitness')) return '/facilities/gym.jpg';
+  if (name.includes('pool') || name.includes('swim')) return '/facilities/pool.png';
+  if (name.includes('clubhouse') || name.includes('hall')) return '/facilities/clubhousecall.jpg';
+  const typeMap = {
+    gym: '/facilities/gym.jpg',
+    pool: '/facilities/pool.png',
+    clubhouse: '/facilities/clubhousecall.jpg',
+    'party-hall': '/facilities/clubhousecall.jpg',
+    'tennis-court': '/facilities/badminton_court.jpg',
+  };
+  return typeMap[facility?.type] || null;
+};
 const todayStr=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const timeLabel=(iso)=>new Date(iso).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});
 const hourLabel=(hhmm)=>{const [h,m]=hhmm.split(':').map(Number);const d=new Date();d.setHours(h,m,0,0);return d.toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'});};
@@ -105,7 +121,50 @@ export default function BookingsPage(){
   };
 
   return <><PageHeader eyebrow="Community amenities" title={role==='Resident'?'Find your perfect slot':'Facility & booking management'} description="Discover community spaces, choose a time and keep every reservation organized." action={role!=='Resident'?<button onClick={()=>setFacilityOpen(true)} className="btn-primary"><Plus size={18}/> Add facility</button>:null}/>
-    <div className="grid gap-5 lg:grid-cols-3">{list.map((f,i)=><article key={f._id} className="card overflow-hidden"><div className={`flex h-40 items-end bg-gradient-to-br ${facilityColors[i%3]} p-5 text-white`}><div><div className="mb-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold capitalize">{f.type}</div><h2 className="font-display text-2xl font-extrabold">{f.name}</h2></div></div><div className="p-5"><p className="min-h-10 text-sm text-slate-500">{f.description}</p><div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1"><UsersRound size={15}/> {f.capacity}</span>{(f.openHours||[]).map((oh,idx)=><span key={idx} className="flex items-center gap-1"><Clock3 size={15}/> {hourLabel(oh.start)}–{hourLabel(oh.end)}</span>)}</div><div className="mt-4 flex flex-wrap gap-2">{f.amenities?.slice(0,3).map(a=><span key={a} className="rounded-full bg-slate-100 px-3 py-1 text-xs dark:bg-slate-800">{a}</span>)}</div>{role==='Resident'&&<button onClick={()=>openBooking(f)} className="btn-primary mt-5 w-full">Book a slot</button>}</div></article>)}</div>
+    <div className="grid gap-5 lg:grid-cols-3">
+      {list.map((f, i) => {
+        const img = getFacilityImage(f);
+        return (
+          <article key={f._id} className="card overflow-hidden group">
+            <div className="relative flex h-48 items-end overflow-hidden p-5 text-white">
+              {img ? (
+                <>
+                  <img src={img} alt={f.name} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+                </>
+              ) : (
+                <div className={`absolute inset-0 bg-gradient-to-br ${facilityColors[i % 3]}`} />
+              )}
+              <div className="relative z-10">
+                <div className="mb-2 inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-bold capitalize backdrop-blur-md">
+                  {f.type?.replace('-', ' ')}
+                </div>
+                <h2 className="font-display text-2xl font-extrabold drop-shadow">{f.name}</h2>
+              </div>
+            </div>
+            <div className="p-5">
+              <p className="min-h-10 text-sm text-slate-500 line-clamp-2">{f.description}</p>
+              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+                <span className="flex items-center gap-1"><UsersRound size={15} /> Capacity {f.capacity}</span>
+                {(f.openHours || []).map((oh, idx) => (
+                  <span key={idx} className="flex items-center gap-1"><Clock3 size={15} /> {hourLabel(oh.start)}–{hourLabel(oh.end)}</span>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {f.amenities?.slice(0, 3).map((a) => (
+                  <span key={a} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold dark:bg-slate-800">{a}</span>
+                ))}
+              </div>
+              {role === 'Resident' && (
+                <button onClick={() => openBooking(f)} className="btn-primary mt-5 w-full">
+                  Book a slot
+                </button>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>
     <section className="card mt-7 overflow-hidden">
       <div className="p-5">
         <h2 className="section-title">{role === 'Resident' ? 'My booking history' : 'Booking requests'}</h2>

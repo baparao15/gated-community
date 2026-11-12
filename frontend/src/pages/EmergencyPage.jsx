@@ -221,7 +221,7 @@ export default function EmergencyPage() {
             <form onSubmit={addContact} className="mt-6 space-y-3 border-t border-slate-100 pt-5 dark:border-slate-800">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-brand-600">Add contact</h3>
               <input required className="field" placeholder="Name (e.g. Community medical room)" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} />
-              <input required className="field" inputMode="tel" maxLength={15} placeholder="Phone number" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value.replace(/\D/g, '').slice(0, 15) })} />
+              <input required className="field" inputMode="tel" maxLength={10} placeholder="Phone number (10 digits)" value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
               <button className="btn-primary w-full"><Plus size={17} /> Add emergency contact</button>
             </form>
           )}

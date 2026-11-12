@@ -173,15 +173,32 @@ const bookingDashboard = async (req, res) => {
 
 // ── Notifications ──────────────────────────────────────────────────────────────
 const listNotifications = async (req, res) => {
-  const { isRead, page = 1, limit = 20 } = req.query;
-  const filter = { recipient: req.user._id };
+  const { isRead, page = 1, limit = 50, includeDismissed } = req.query;
+  const now = new Date();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Automatically disappear after fixed deadline:
+  // - notifications with expiresAt <= now are excluded
+  // - notifications older than 30 days are excluded if no expiresAt
+  const filter = {
+    recipient: req.user._id,
+    $or: [
+      { expiresAt: { $gt: now } },
+      { expiresAt: { $exists: false }, createdAt: { $gt: thirtyDaysAgo } },
+    ],
+  };
+
+  if (!includeDismissed || includeDismissed !== 'true') {
+    filter.isDismissed = { $ne: true };
+  }
+
   if (isRead !== undefined) filter.isRead = isRead === 'true';
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const [notifications, total, unreadCount] = await Promise.all([
     Notification.find(filter).skip(skip).limit(parseInt(limit)).sort({ createdAt: -1 }),
     Notification.countDocuments(filter),
-    Notification.countDocuments({ recipient: req.user._id, isRead: false }),
+    Notification.countDocuments({ ...filter, isRead: false }),
   ]);
 
   return sendPaginated(res, 'Notifications fetched', notifications, {
@@ -200,6 +217,44 @@ const markNotificationRead = async (req, res) => {
   return sendSuccess(res, 'Notification marked as read', notification);
 };
 
+const reactNotification = async (req, res) => {
+  const { reaction = 'acknowledged' } = req.body;
+  const notification = await Notification.findOneAndUpdate(
+    { _id: req.params.id, recipient: req.user._id },
+    { reaction, isRead: true, readAt: new Date() },
+    { new: true }
+  );
+  if (!notification) return sendSuccess(res, 'Notification not found', null);
+  return sendSuccess(res, `Notification reacted with ${reaction}`, notification);
+};
+
+const dismissNotification = async (req, res) => {
+  const notification = await Notification.findOneAndUpdate(
+    { _id: req.params.id, recipient: req.user._id },
+    { isDismissed: true, dismissedAt: new Date() },
+    { new: true }
+  );
+  if (!notification) return sendSuccess(res, 'Notification not found', null);
+  return sendSuccess(res, 'Notification dismissed/ignored', notification);
+};
+
+const deleteNotification = async (req, res) => {
+  const notification = await Notification.findOneAndDelete({
+    _id: req.params.id,
+    recipient: req.user._id,
+  });
+  if (!notification) return sendSuccess(res, 'Notification not found', null);
+  return sendSuccess(res, 'Notification removed successfully', notification);
+};
+
+const clearNotifications = async (req, res) => {
+  await Notification.deleteMany({
+    recipient: req.user._id,
+    $or: [{ isRead: true }, { isDismissed: true }],
+  });
+  return sendSuccess(res, 'Cleared read/dismissed notifications');
+};
+
 const markAllRead = async (req, res) => {
   await Notification.updateMany(
     { recipient: req.user._id, isRead: false },
@@ -211,4 +266,5 @@ const markAllRead = async (req, res) => {
 module.exports = {
   overview, financialDashboard, maintenanceDashboard, visitorDashboard, bookingDashboard,
   listNotifications, markNotificationRead, markAllRead,
+  reactNotification, dismissNotification, deleteNotification, clearNotifications,
 };

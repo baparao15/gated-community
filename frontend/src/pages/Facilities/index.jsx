@@ -13,6 +13,23 @@ const categories = [
   ['Transport', Truck, 'bg-brand-100 text-brand-600'],
 ];
 
+const getFacilityImage = (facility) => {
+  if (facility?.images?.length) return facility.images[0];
+  const name = facility?.name?.toLowerCase() || '';
+  if (name.includes('badminton') || name.includes('court')) return '/facilities/badminton_court.jpg';
+  if (name.includes('gym') || name.includes('fitness')) return '/facilities/gym.jpg';
+  if (name.includes('pool') || name.includes('swim')) return '/facilities/pool.png';
+  if (name.includes('clubhouse') || name.includes('hall')) return '/facilities/clubhousecall.jpg';
+  const typeMap = {
+    gym: '/facilities/gym.jpg',
+    pool: '/facilities/pool.png',
+    clubhouse: '/facilities/clubhousecall.jpg',
+    'party-hall': '/facilities/clubhousecall.jpg',
+    'tennis-court': '/facilities/badminton_court.jpg',
+  };
+  return typeMap[facility?.type] || null;
+};
+
 export default function FacilitiesPage() {
   const navigate = useNavigate();
   const { data } = useApiData('/facilities', []);
@@ -82,8 +99,22 @@ export default function FacilitiesPage() {
           </div>
         ) : (
           filteredFacilities.map((facility, index) => (
-            <article key={facility._id || facility.name} className="card overflow-hidden">
-              <div className={`h-36 ${index % 3 === 0 ? 'bg-gradient-to-br from-mint-600 to-mint-100' : index % 3 === 1 ? 'bg-gradient-to-br from-brand-600 to-brand-100' : 'bg-gradient-to-br from-amber-500 to-amber-100'}`} />
+            <article key={facility._id || facility.name} className="card overflow-hidden group">
+              <div className="relative h-44 w-full overflow-hidden bg-earth-100 dark:bg-earth-800">
+                {getFacilityImage(facility) ? (
+                  <img
+                    src={getFacilityImage(facility)}
+                    alt={facility.name}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className={`h-full w-full ${index % 3 === 0 ? 'bg-gradient-to-br from-mint-600 to-mint-100' : index % 3 === 1 ? 'bg-gradient-to-br from-brand-600 to-brand-100' : 'bg-gradient-to-br from-amber-500 to-amber-100'}`} />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold capitalize text-earth-800 shadow-sm backdrop-blur-md dark:bg-earth-900/90 dark:text-earth-100">
+                  {facility.type?.replace('-', ' ')}
+                </span>
+              </div>
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>

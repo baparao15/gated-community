@@ -18,6 +18,13 @@ const notificationSchema = new mongoose.Schema(
     message: { type: String, required: true },
     isRead: { type: Boolean, default: false },
     readAt: { type: Date },
+    expiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30-day fixed deadline
+    },
+    reaction: { type: String, default: null },
+    isDismissed: { type: Boolean, default: false },
+    dismissedAt: { type: Date },
     relatedEntity: {
       model: { type: String, enum: ['Visitor', 'Complaint', 'Announcement', 'Booking', 'Invoice', 'Payment', 'Product'] },
       id: { type: mongoose.Schema.Types.ObjectId },
@@ -27,6 +34,7 @@ const notificationSchema = new mongoose.Schema(
 );
 
 notificationSchema.index({ recipient: 1, isRead: 1 });
+notificationSchema.index({ recipient: 1, isDismissed: 1, expiresAt: 1 });
 notificationSchema.index({ createdAt: -1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);

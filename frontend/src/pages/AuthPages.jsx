@@ -25,11 +25,11 @@ function AuthFrame({ children, title, subtitle, wide = false }) {
         <div className="relative text-xs text-earth-500">Trusted community operations · Built for privacy</div>
       </div>
 
-      {/* Logo sitting at the panel boundary - only on large/extra large viewports to prevent covering inputs on small laptops */}
-      <div className="pointer-events-none absolute hidden xl:block left-[52.5%] top-1/2 z-10 h-[240px] w-[240px] 2xl:h-[340px] 2xl:w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden">
+      {/* Two-half colored logo sitting in the middle of both panels */}
+      <div className="pointer-events-none absolute hidden lg:block left-[52.5%] top-1/2 z-10 h-36 w-36 xl:h-44 xl:w-44 2xl:h-56 2xl:w-56 -translate-x-1/2 -translate-y-1/2 rounded-full overflow-hidden drop-shadow-md">
         {/* Left half — lighter/faded on the dark panel */}
         <div className="absolute inset-0" style={{ clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' }}>
-          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.30]" style={{ filter: 'brightness(1.5)' }} />
+          <img src={panchayatMark} alt="" aria-hidden="true" className="h-full w-full object-contain opacity-[0.35]" style={{ filter: 'brightness(1.5)' }} />
         </div>
         {/* Right half — full vivid natural image on the white panel */}
         <div className="absolute inset-0" style={{ clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)' }}>
@@ -38,7 +38,7 @@ function AuthFrame({ children, title, subtitle, wide = false }) {
       </div>
 
       {/* Right light panel */}
-      <div className="flex items-center justify-center p-4 sm:p-8 xl:p-10">
+      <div className="flex items-center justify-center p-4 sm:p-8 lg:pl-12 xl:pl-16 xl:pr-10">
         <div className={`w-full ${wide ? 'max-w-xl' : 'max-w-md'}`}>
           <Link to="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-earth-500 hover:text-brand-600 sm:mb-6"><ArrowLeft size={17}/> Back home</Link>
           <div className="relative mb-5 overflow-hidden rounded-2xl bg-earth-900 p-5 text-white lg:hidden">
@@ -154,7 +154,7 @@ export function RegisterPage() {
   };
 
   return <AuthFrame wide title="Join your community" subtitle="Create your resident account. Admin approval may be required."><form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-    {[['Full name','name','text'],['Email','email','email'],['Phone','phone','tel'],['Apartment number','unitNumber','text'],['Password','password','password'],['Confirm password','confirm','password']].map(([label,key,type])=><label key={key} className="block"><span className="mb-2 block text-sm font-bold">{label}</span><input className="field" type={type} required={!['phone','unitNumber'].includes(key)} placeholder={key==='unitNumber'?'A1289':''} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}
+    {[['Full name','name','text'],['Email','email','email'],['Phone','phone','tel'],['Apartment number','unitNumber','text'],['Password','password','password'],['Confirm password','confirm','password']].map(([label,key,type])=><label key={key} className="block"><span className="mb-2 block text-sm font-bold">{label}</span><input className="field" type={type} required={!['phone','unitNumber'].includes(key)} placeholder={key==='unitNumber'?'A1289':key==='phone'?'9876543210':''} maxLength={key==='phone'?10:undefined} value={form[key]} onChange={e=>setForm({...form,[key]:key==='phone'?e.target.value.replace(/\D/g,'').slice(0,10):e.target.value})}/></label>)}
     {message&&<div className={`sm:col-span-2 flex items-start gap-3 rounded-xl p-4 text-sm font-semibold ${isSuccess ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
       <span className="text-lg leading-none">{isSuccess ? '✓' : '✗'}</span>
       <span>{message}{isSuccess && countdown !== null && <span className="ml-2 opacity-70">Redirecting in {countdown}s…</span>}</span>

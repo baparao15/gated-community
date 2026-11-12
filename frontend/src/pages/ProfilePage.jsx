@@ -64,8 +64,8 @@ export default function ProfilePage() {
     return () => { active = false; };
   }, [isResident, user?.email, user?.name]);
 
-  const phoneRegex = /^[0-9]{7,15}$/;
-  const cleanPhone = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 15);
+  const phoneRegex = /^[0-9]{10}$/;
+  const cleanPhone = (value) => String(value ?? '').replace(/\D/g, '').slice(0, 10);
 
   const handleAvatarUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -121,11 +121,11 @@ export default function ProfilePage() {
   const save = async (e) => {
     e.preventDefault();
     if (form.phone && !phoneRegex.test(form.phone.trim())) {
-      dispatch(showToast({ message: 'Enter a valid phone number (digits only, 7–15 digits)', severity: 'error' }));
+      dispatch(showToast({ message: 'Enter a valid 10-digit phone number', severity: 'error' }));
       return;
     }
     if (isResident && form.emergencyPhone && !phoneRegex.test(form.emergencyPhone.trim())) {
-      dispatch(showToast({ message: 'Enter a valid emergency contact phone number (digits only, 7–15 digits)', severity: 'error' }));
+      dispatch(showToast({ message: 'Enter a valid 10-digit emergency contact phone number', severity: 'error' }));
       return;
     }
     try {
@@ -284,7 +284,7 @@ export default function ProfilePage() {
         <button type="button" onClick={() => setPasswordOpen(true)} className="btn-secondary mt-6 w-full"><KeyRound size={17} /> Change password</button>
       </aside>
       <form onSubmit={save} className="space-y-6">
-        <section className="card p-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-brand-600"><UserRound size={19} /></div><h2 className="section-title">Personal information</h2></div><div className="mt-6 grid gap-4 sm:grid-cols-2">{[['Full name', 'name', 'text'], ['Email', 'email', 'email'], ['Phone', 'phone', 'tel'], ...(isResident ? [['Apartment', 'apartment', 'text']] : [])].map(([label, key, type]) => <label key={key}><span className="mb-2 block text-sm font-bold">{label}</span><input type={type} className="field" value={form[key]} disabled={key === 'email' || key === 'apartment'} {...(key === 'phone' ? { inputMode: 'tel', maxLength: 20, placeholder: 'e.g. 9876543210' } : {})} onChange={(e) => setForm({ ...form, [key]: key === 'phone' ? cleanPhone(e.target.value) : e.target.value })} /></label>)}</div></section>
+        <section className="card p-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-brand-600"><UserRound size={19} /></div><h2 className="section-title">Personal information</h2></div><div className="mt-6 grid gap-4 sm:grid-cols-2">{[['Full name', 'name', 'text'], ['Email', 'email', 'email'], ['Phone', 'phone', 'tel'], ...(isResident ? [['Apartment', 'apartment', 'text']] : [])].map(([label, key, type]) => <label key={key}><span className="mb-2 block text-sm font-bold">{label}</span><input type={type} className="field" value={form[key]} disabled={key === 'email' || key === 'apartment'} {...(key === 'phone' ? { inputMode: 'tel', maxLength: 10, placeholder: 'e.g. 9876543210' } : {})} onChange={(e) => setForm({ ...form, [key]: key === 'phone' ? cleanPhone(e.target.value) : e.target.value })} /></label>)}</div></section>
         
         {isResident && (
           <section className="card p-6">
@@ -355,7 +355,7 @@ export default function ProfilePage() {
           </section>
         )}
 
-        {isResident && <section className="card p-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-600"><ShieldCheck size={19} /></div><h2 className="section-title">Emergency contact</h2></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label><span className="mb-2 block text-sm font-bold">Contact name</span><input className="field" value={form.emergencyName} onChange={(e) => setForm({ ...form, emergencyName: e.target.value })} /></label><label><span className="mb-2 block text-sm font-bold">Contact phone</span><input className="field" inputMode="tel" maxLength={20} value={form.emergencyPhone} onChange={(e) => setForm({ ...form, emergencyPhone: cleanPhone(e.target.value) })} /></label></div></section>}
+        {isResident && <section className="card p-6"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-600"><ShieldCheck size={19} /></div><h2 className="section-title">Emergency contact</h2></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label><span className="mb-2 block text-sm font-bold">Contact name</span><input className="field" value={form.emergencyName} onChange={(e) => setForm({ ...form, emergencyName: e.target.value })} /></label><label><span className="mb-2 block text-sm font-bold">Contact phone</span><input className="field" inputMode="tel" maxLength={10} placeholder="e.g. 9876543210" value={form.emergencyPhone} onChange={(e) => setForm({ ...form, emergencyPhone: cleanPhone(e.target.value) })} /></label></div></section>}
         <button className="btn-primary"><Save size={18} /> Save profile changes</button>
       </form>
     </div>
